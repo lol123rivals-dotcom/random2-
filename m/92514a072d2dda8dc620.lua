@@ -1,0 +1,528 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local function getGuiParent()
+local ok, h = pcall(function() return gethui and gethui() end)
+if ok and h and ((typeof and typeof(h) == "Instance") or type(h) == "userdata" or type(h) == "table") then return h end
+local ok2, c = pcall(function() return CoreGui end)
+if ok2 and c and ((typeof and typeof(c) == "Instance") or type(c) == "userdata" or type(c) == "table") then
+local pOk = pcall(function()
+local t = Instance.new("Folder")
+t.Parent = c
+t:Destroy()
+end)
+if pOk then return c end
+end
+local lp = LocalPlayer or Players.LocalPlayer
+if lp then
+local pg = nil
+pcall(function()
+pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+end)
+if pg then return pg end
+pcall(function()
+pg = lp:WaitForChild("PlayerGui", 2)
+end)
+if pg then return pg end
+end
+return nil
+end
+local function ensureParent(gui)
+if not gui then return end
+local p = getGuiParent()
+if p and gui.Parent ~= p then
+pcall(function() gui.Parent = p end)
+end
+end
+local function makeDraggable(targetFrame, dragHandle, onClick)
+dragHandle = dragHandle or targetFrame
+local dragging = false
+local dragStart = nil
+local startPos = nil
+local isDrag = false
+local lastClickTick = 0
+local moveConn = nil
+local endConn = nil
+local function cleanupDrag()
+if moveConn then moveConn:Disconnect(); moveConn = nil end
+if endConn then endConn:Disconnect(); endConn = nil end
+dragging = false
+end
+local function fireClick()
+local now = os.clock()
+if now - lastClickTick < 0.25 then return end
+lastClickTick = now
+if onClick then
+pcall(onClick)
+end
+end
+dragHandle.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+if moveConn then moveConn:Disconnect(); moveConn = nil end
+if endConn then endConn:Disconnect(); endConn = nil end
+if (_G.DarlingX and _G.DarlingX.LockWidgets) == true then
+fireClick()
+return
+end
+dragging = true
+isDrag = false
+dragStart = input.Position
+startPos = targetFrame.Position
+moveConn = UserInputService.InputChanged:Connect(function(moveInput)
+if dragging and (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) then
+if dragStart and startPos then
+local delta = moveInput.Position - dragStart
+if delta.Magnitude > 6 then
+isDrag = true
+targetFrame.Position = UDim2.new(
+startPos.X.Scale,
+startPos.X.Offset + delta.X,
+startPos.Y.Scale,
+startPos.Y.Offset + delta.Y
+)
+end
+end
+end
+end)
+endConn = UserInputService.InputEnded:Connect(function(endInput)
+if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
+if dragging then
+local wasDrag = isDrag
+cleanupDrag()
+if not wasDrag then
+fireClick()
+end
+end
+end
+end)
+end
+end)
+pcall(function()
+if dragHandle:IsA("GuiButton") then
+dragHandle.Activated:Connect(function()
+if not isDrag then
+fireClick()
+end
+end)
+end
+end)
+end
+local function createGlassWidget(name, size, pos)
+local gui = Instance.new("ScreenGui")
+gui.Name = name
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 99999
+gui.IgnoreGuiInset = true
+gui.Enabled = false
+pcall(function()
+if syn and syn.protect_gui then syn.protect_gui(gui) end
+gui.Parent = getGuiParent()
+end)
+local container = Instance.new("Frame", gui)
+container.Name = name .. "_Container"
+container.Size = size
+container.Position = pos
+container.BackgroundColor3 = Color3.fromRGB(18, 14, 28)
+container.BackgroundTransparency = 0.45
+container.Active = true
+local corner = Instance.new("UICorner", container)
+corner.CornerRadius = UDim.new(0, 10)
+local stroke = Instance.new("UIStroke", container)
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Thickness = 1.0
+stroke.Transparency = 0.6
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+local btn = Instance.new("TextButton", container)
+btn.Name = name .. "_Btn"
+btn.Size = UDim2.new(1, -6, 1, -6)
+btn.Position = UDim2.new(0, 3, 0, 3)
+btn.BackgroundColor3 = Color3.fromRGB(48, 38, 72)
+btn.BackgroundTransparency = 0.5
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 11
+btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+btn.AutoButtonColor = false
+local btnCorner = Instance.new("UICorner", btn)
+btnCorner.CornerRadius = UDim.new(0, 8)
+return gui, container, btn
+end
+local SuperJumpUI = nil
+local jumpBtnRef = nil
+local function doSuperJump()
+if not _G.DarlingX_SuperJump then return end
+pcall(function()
+local char = LocalPlayer.Character
+local hrp = char and char:FindFirstChild("HumanoidRootPart")
+if hrp then
+local force = _G.DarlingX_SuperJumpPower or 216
+hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, force, hrp.AssemblyLinearVelocity.Z)
+end
+end)
+end
+local function initSuperJumpUI()
+if SuperJumpUI and SuperJumpUI.Parent then return end
+local gui, container, btn = createGlassWidget("SuperJumpWidget", UDim2.new(0, 92, 0, 38), UDim2.new(0.85, 0, 0.58, 0))
+SuperJumpUI = gui
+jumpBtnRef = btn
+btn.Text = "JUMP"
+btn.TextSize = 12
+makeDraggable(container, btn, function()
+doSuperJump()
+end)
+end
+local CamlockUI = nil
+local lockBtnRef = nil
+local function updateLockVisual(state)
+if not lockBtnRef then return end
+local active = (state ~= nil) and state or (_G.DarlingX_Camlock == true)
+if active then
+lockBtnRef.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+lockBtnRef.BackgroundTransparency = 0.2
+local targetName = rawget(_G, "DarlingX_CamlockTargetName")
+if targetName and tostring(targetName) ~= "" then
+local cleanName = tostring(targetName)
+if #cleanName > 8 then
+cleanName = cleanName:sub(1, 7) .. ".."
+end
+lockBtnRef.Text = "LOCK: " .. cleanName
+else
+lockBtnRef.Text = "LOCK: ON"
+end
+else
+lockBtnRef.BackgroundColor3 = Color3.fromRGB(36, 30, 50)
+lockBtnRef.BackgroundTransparency = 0.5
+lockBtnRef.Text = "LOCK: OFF"
+end
+end
+local function initCamlockUI()
+if CamlockUI and CamlockUI.Parent then return end
+local gui, container, btn = createGlassWidget("CamlockWidget", UDim2.new(0, 96, 0, 38), UDim2.new(0.85, 0, 0.50, 0))
+CamlockUI = gui
+lockBtnRef = btn
+updateLockVisual(false)
+makeDraggable(container, btn, function()
+if _G.DarlingX_CamlockMod and _G.DarlingX_CamlockMod.Toggle then
+_G.DarlingX_CamlockMod.Toggle()
+elseif _G.DarlingX_ToggleCamlock then
+_G.DarlingX_ToggleCamlock()
+else
+local cl = rawget(_G, "DarlingX_GetModule") and _G.DarlingX_GetModule("modules/pvp/camlock.lua")
+if cl and cl.Toggle then
+cl.Toggle()
+end
+end
+end)
+end
+local DragonM1UI = nil
+local m1BtnRef = nil
+local function updateDragonM1Visual(state)
+if not m1BtnRef then return end
+local active = (state ~= nil) and state or (_G.G_DragonGunM1 == true)
+if active then
+m1BtnRef.BackgroundColor3 = Color3.fromRGB(0, 190, 90)
+m1BtnRef.BackgroundTransparency = 0.3
+m1BtnRef.Text = "M1: ON"
+else
+m1BtnRef.BackgroundColor3 = Color3.fromRGB(48, 38, 72)
+m1BtnRef.BackgroundTransparency = 0.5
+m1BtnRef.Text = "M1: OFF"
+end
+end
+local function initDragonM1UI()
+if DragonM1UI and DragonM1UI.Parent then return end
+local gui, container, btn = createGlassWidget("DragonM1Widget", UDim2.new(0, 96, 0, 38), UDim2.new(0.85, 0, 0.42, 0))
+DragonM1UI = gui
+m1BtnRef = btn
+updateDragonM1Visual()
+makeDraggable(container, btn, function()
+if not _G.DarlingX_DragonM1Enabled then return end
+_G.G_DragonGunM1 = not _G.G_DragonGunM1
+updateDragonM1Visual(_G.G_DragonGunM1)
+end)
+end
+local SanguineUI = nil
+local sanguineBtnRef = nil
+local sanguinePulseActive = false
+local function doSanguineBoost()
+if not _G.DarlingX_SanguineBoost then return end
+pcall(function()
+local char = LocalPlayer.Character
+local hrp = char and char:FindFirstChild("HumanoidRootPart")
+if not hrp then return end
+local cam = Workspace.CurrentCamera
+local dir = cam and cam.CFrame.LookVector or hrp.CFrame.LookVector
+local power = 400
+local duration = 0.9
+local att = Instance.new("Attachment", hrp)
+local lv = Instance.new("LinearVelocity", hrp)
+lv.MaxForce = math.huge
+lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+lv.VectorVelocity = dir * power
+lv.Attachment0 = att
+task.delay(duration, function()
+if lv and lv.Parent then lv:Destroy() end
+if att and att.Parent then att:Destroy() end
+end)
+end)
+end
+local function updateSanguineVisual(isBoosting)
+if not sanguineBtnRef then return end
+if isBoosting then
+sanguineBtnRef.BackgroundColor3 = Color3.fromRGB(0, 220, 100)
+sanguineBtnRef.BackgroundTransparency = 0.2
+sanguineBtnRef.Text = "BOOST!"
+else
+sanguineBtnRef.BackgroundColor3 = Color3.fromRGB(110, 45, 170)
+sanguineBtnRef.BackgroundTransparency = 0.4
+sanguineBtnRef.Text = "BOOST Z"
+end
+end
+local function triggerSanguineAction()
+if not _G.DarlingX_SanguineBoost or sanguinePulseActive then return end
+sanguinePulseActive = true
+doSanguineBoost()
+updateSanguineVisual(true)
+task.delay(0.35, function()
+updateSanguineVisual(false)
+sanguinePulseActive = false
+end)
+end
+local function initSanguineUI()
+if SanguineUI and SanguineUI.Parent then return end
+local gui, container, btn = createGlassWidget("SanguineWidget", UDim2.new(0, 92, 0, 38), UDim2.new(0.85, 0, 0.34, 0))
+SanguineUI = gui
+sanguineBtnRef = btn
+updateSanguineVisual(false)
+makeDraggable(container, btn, function()
+triggerSanguineAction()
+end)
+end
+local FruitFastAttackUI = nil
+local fruitFABtnRef = nil
+local function updateFruitFAVisual(state)
+if not fruitFABtnRef then return end
+local active = (state ~= nil) and state or (_G.DarlingX_FruitFastAttack == true)
+if active then
+fruitFABtnRef.BackgroundColor3 = Color3.fromRGB(0, 190, 90)
+fruitFABtnRef.BackgroundTransparency = 0.2
+fruitFABtnRef.Text = "FRUIT FA: ON"
+else
+fruitFABtnRef.BackgroundColor3 = Color3.fromRGB(36, 30, 50)
+fruitFABtnRef.BackgroundTransparency = 0.5
+fruitFABtnRef.Text = "FRUIT FA: OFF"
+end
+end
+local function initFruitFastAttackUI()
+if FruitFastAttackUI and FruitFastAttackUI.Parent then return end
+local gui, container, btn = createGlassWidget("FruitFastAttackWidget", UDim2.new(0, 105, 0, 38), UDim2.new(0.85, 0, 0.26, 0))
+FruitFastAttackUI = gui
+fruitFABtnRef = btn
+updateFruitFAVisual(_G.DarlingX_FruitFastAttack)
+makeDraggable(container, btn, function()
+_G.DarlingX_FruitFastAttack = not _G.DarlingX_FruitFastAttack
+updateFruitFAVisual(_G.DarlingX_FruitFastAttack)
+if _G.DarlingX_SyncFruitFastAttackUI then
+pcall(_G.DarlingX_SyncFruitFastAttackUI, _G.DarlingX_FruitFastAttack)
+end
+local ffa = rawget(_G, "DarlingX_FruitFastAttackMod")
+if ffa and ffa.toggle then
+ffa.toggle(_G.DarlingX_FruitFastAttack)
+end
+end)
+end
+local MacroWidgetUI = nil
+local macroWidgetBtnRef = nil
+local function updateMacroWidgetVisual(state)
+if not macroWidgetBtnRef then return end
+local isRunning = (state ~= nil) and state or (_G.DarlingX_MacroRunning == true)
+if isRunning then
+macroWidgetBtnRef.BackgroundColor3 = Color3.fromRGB(255, 75, 145)
+macroWidgetBtnRef.BackgroundTransparency = 0.2
+macroWidgetBtnRef.Text = "MACRO: ON"
+else
+macroWidgetBtnRef.BackgroundColor3 = Color3.fromRGB(36, 30, 50)
+macroWidgetBtnRef.BackgroundTransparency = 0.5
+macroWidgetBtnRef.Text = "MACRO: OFF"
+end
+end
+local function initMacroUI()
+if MacroWidgetUI and MacroWidgetUI.Parent then return end
+local gui, container, btn = createGlassWidget("MacroWidget", UDim2.new(0, 96, 0, 38), UDim2.new(0.85, 0, 0.18, 0))
+MacroWidgetUI = gui
+macroWidgetBtnRef = btn
+updateMacroWidgetVisual(false)
+makeDraggable(container, btn, function()
+local macroMod = rawget(_G, "DarlingX_MacroMod")
+if macroMod and macroMod.executeCombo then
+macroMod.executeCombo()
+local running = (macroMod.Running == true)
+_G.DarlingX_MacroRunning = running
+updateMacroWidgetVisual(running)
+end
+end)
+end
+local KitOneShotUI = nil
+local kitOneShotBtnRef = nil
+local function updateKitOneShotVisual(state)
+if not kitOneShotBtnRef then return end
+local active = (state ~= nil) and state or (_G.DarlingX_KitOneShot == true or _G.FruitsM1Enable == true)
+if active then
+kitOneShotBtnRef.BackgroundColor3 = Color3.fromRGB(220, 20, 60)
+kitOneShotBtnRef.BackgroundTransparency = 0.2
+kitOneShotBtnRef.Text = "KIT 1-SHOT: ON"
+else
+kitOneShotBtnRef.BackgroundColor3 = Color3.fromRGB(36, 30, 50)
+kitOneShotBtnRef.BackgroundTransparency = 0.5
+kitOneShotBtnRef.Text = "KIT 1-SHOT: OFF"
+end
+end
+local function initKitOneShotUI()
+if KitOneShotUI and KitOneShotUI.Parent then return end
+local gui, container, btn = createGlassWidget("KitOneShotWidget", UDim2.new(0, 115, 0, 38), UDim2.new(0.85, 0, 0.10, 0))
+KitOneShotUI = gui
+kitOneShotBtnRef = btn
+updateKitOneShotVisual(false)
+makeDraggable(container, btn, function()
+local kosMod = rawget(_G, "DarlingX_KitOneShotMod")
+local nextState = not (_G.DarlingX_KitOneShot == true or _G.FruitsM1Enable == true)
+if kosMod and kosMod.toggle then
+kosMod.toggle(nextState)
+else
+_G.DarlingX_KitOneShot = nextState
+_G.FruitsM1Enable = nextState
+end
+updateKitOneShotVisual(nextState)
+end)
+end
+local AimLockUI = nil
+local aimLockBtnRef = nil
+local function updateAimLockVisual(state)
+if not aimLockBtnRef then return end
+local active = (state ~= nil) and state or (_G.DarlingX_TargetLock == true)
+if active then
+aimLockBtnRef.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+aimLockBtnRef.BackgroundTransparency = 0.2
+local target = rawget(_G, "DarlingX_LockedTarget")
+local targetName = target and (target.DisplayName or target.Name)
+if targetName and tostring(targetName) ~= "" then
+local cleanName = tostring(targetName)
+if #cleanName > 8 then
+cleanName = cleanName:sub(1, 7) .. ".."
+end
+aimLockBtnRef.Text = "AIM: " .. cleanName
+else
+aimLockBtnRef.Text = "AIM: LOCKED"
+end
+else
+aimLockBtnRef.BackgroundColor3 = Color3.fromRGB(36, 30, 50)
+aimLockBtnRef.BackgroundTransparency = 0.5
+aimLockBtnRef.Text = "AIM LOCK: OFF"
+end
+end
+local function initAimLockUI()
+if AimLockUI and AimLockUI.Parent then return end
+local gui, container, btn = createGlassWidget("AimLockWidget", UDim2.new(0, 105, 0, 38), UDim2.new(0.85, 0, 0.44, 0))
+AimLockUI = gui
+aimLockBtnRef = btn
+updateAimLockVisual(false)
+makeDraggable(container, btn, function()
+local isCurrentlyLocked = (_G.DarlingX_TargetLock == true)
+local newState = not isCurrentlyLocked
+_G.DarlingX_TargetLock = newState
+local core = rawget(_G, "DarlingX_GetModule") and _G.DarlingX_GetModule("modules/combat/aimbot_core.lua")
+if core and core.SetPlayerLock then
+core.SetPlayerLock(newState)
+end
+updateAimLockVisual(newState)
+if _G.DarlingX_SyncAimLockUI then
+pcall(_G.DarlingX_SyncAimLockUI, newState)
+end
+end)
+end
+initSuperJumpUI()
+initCamlockUI()
+initDragonM1UI()
+initSanguineUI()
+initFruitFastAttackUI()
+initMacroUI()
+initKitOneShotUI()
+initAimLockUI()
+local Widgets = {
+SetSuperJumpWidgetVisible = function(state)
+if not SuperJumpUI or not SuperJumpUI.Parent then initSuperJumpUI() end
+if SuperJumpUI then
+ensureParent(SuperJumpUI)
+SuperJumpUI.Enabled = (state == true)
+end
+end,
+DoSuperJump = doSuperJump,
+SetCamlockWidgetVisible = function(state)
+if not CamlockUI or not CamlockUI.Parent then initCamlockUI() end
+if CamlockUI then
+ensureParent(CamlockUI)
+CamlockUI.Enabled = (state == true)
+updateLockVisual(false)
+end
+end,
+UpdateCamlockVisual = updateLockVisual,
+SetDragonM1WidgetVisible = function(state)
+if not DragonM1UI or not DragonM1UI.Parent then initDragonM1UI() end
+if DragonM1UI then
+ensureParent(DragonM1UI)
+DragonM1UI.Enabled = (state == true)
+updateDragonM1Visual()
+end
+end,
+UpdateDragonM1Visual = updateDragonM1Visual,
+SetSanguineWidgetVisible = function(state)
+if not SanguineUI or not SanguineUI.Parent then initSanguineUI() end
+if SanguineUI then
+ensureParent(SanguineUI)
+SanguineUI.Enabled = (state == true)
+updateSanguineVisual(false)
+end
+end,
+UpdateSanguineVisual = updateSanguineVisual,
+DoSanguineBoost = triggerSanguineAction,
+SetFruitFastAttackWidgetVisible = function(state)
+if not FruitFastAttackUI or not FruitFastAttackUI.Parent then initFruitFastAttackUI() end
+if FruitFastAttackUI then
+ensureParent(FruitFastAttackUI)
+FruitFastAttackUI.Enabled = (state == true)
+updateFruitFAVisual(_G.DarlingX_FruitFastAttack == true)
+end
+end,
+UpdateFruitFastAttackVisual = updateFruitFAVisual,
+SetMacroWidgetVisible = function(state)
+if not MacroWidgetUI or not MacroWidgetUI.Parent then initMacroUI() end
+if MacroWidgetUI then
+ensureParent(MacroWidgetUI)
+MacroWidgetUI.Enabled = (state == true)
+updateMacroWidgetVisual(false)
+end
+end,
+UpdateMacroVisual = updateMacroWidgetVisual,
+SetKitOneShotWidgetVisible = function(state)
+if not KitOneShotUI or not KitOneShotUI.Parent then initKitOneShotUI() end
+if KitOneShotUI then
+ensureParent(KitOneShotUI)
+KitOneShotUI.Enabled = (state == true)
+updateKitOneShotVisual(_G.DarlingX_KitOneShot == true or _G.FruitsM1Enable == true)
+end
+end,
+UpdateKitOneShotVisual = updateKitOneShotVisual,
+SetAimLockWidgetVisible = function(state)
+if not AimLockUI or not AimLockUI.Parent then initAimLockUI() end
+if AimLockUI then
+ensureParent(AimLockUI)
+AimLockUI.Enabled = (state == true)
+updateAimLockVisual(_G.DarlingX_TargetLock == true)
+end
+end,
+UpdateAimLockVisual = updateAimLockVisual,
+}
+_G.DarlingX_ExtraWidgets = Widgets
+return Widgets
