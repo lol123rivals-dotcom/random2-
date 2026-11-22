@@ -1,0 +1,5 @@
+local ok,source=pcall(function()return game:HttpGet("https://raw.githubusercontent.com/lol123rivals-dotcom/random2-/main/r.lua",true)end)
+assert(ok and type(source)=="string","Unable to load the interface. Check your connection.")
+local run,err=loadstring(source)
+assert(run,err)
+return run()
