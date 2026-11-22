@@ -634,12 +634,18 @@ local function control(p, kind, key, titleText, description, options)
     local title = label(root, titleText, 16, C.Text, medium)
     local sub = label(root, description, 12, C.Muted)
     sub.TextWrapped = true
+    title.TextWrapped,title.TextTruncate,title.TextYAlignment=true,Enum.TextTruncate.None,Enum.TextYAlignment.Top
+    sub.TextTruncate,sub.TextYAlignment=Enum.TextTruncate.None,Enum.TextYAlignment.Top
     local c = {Root = root, Title = title, Subtitle = sub, Kind = kind, Key = key, Callback = options.OnChanged}
+    root.ClipsDescendants=true
     if kind == "toggle" then
         local b = button(root, "Toggle_" .. key, "", C.Raised, 16)
         local dot = frame(b, "Knob", C.Muted, 10)
+        local indicator=label(root,'OFF',10,C.Muted,medium);indicator.Name='State_'..key;indicator.TextXAlignment=Enum.TextXAlignment.Center
+        c.StateLabel=indicator
         local function render(value)
-            animate(b, {BackgroundColor3 = value and C.AccentDark or Color3.fromRGB(32, 32, 32)})
+            animate(b, {BackgroundColor3 = value and C.Accent or Color3.fromRGB(35, 35, 39)})
+            indicator.Text=value and 'ON'or 'OFF';indicator.TextColor3=value and C.Accent or C.Muted
             animate(dot, {Position = UDim2.fromOffset(value and 24 or 4, 4),
                 BackgroundColor3 = value and C.Ink or C.Muted})
         end
@@ -717,6 +723,7 @@ local function control(p, kind, key, titleText, description, options)
         c.CustomHeight,c.Wide=options.Height or 320,true
         c.Body=frame(root,"CustomBody",C.Card)
         c.Body.BackgroundTransparency=1
+        c.Body.ClipsDescendants=true
         c.Render=function()end
     elseif kind == "input" then
         local box = new("TextBox", {
@@ -727,6 +734,8 @@ local function control(p, kind, key, titleText, description, options)
             BorderSizePixel = 0, TextTruncate = Enum.TextTruncate.AtEnd,
         }, root)
         corner(box, 10)
+        box.TextTruncate=Enum.TextTruncate.None;box.ClipsDescendants=true
+        new('UIPadding',{PaddingLeft=UDim.new(0,12),PaddingRight=UDim.new(0,12)},box)
         c.Input, c.Render = box, function(v) box.Text = tostring(v or "") end
         connect(box.FocusLost, function() set(key, box.Text) end)
     elseif kind == "button" then
@@ -1064,6 +1073,15 @@ layout = function()
     end
     place(dataNote, 2, 592, cw - 4, 24)
 
+    local function textHeight(object,width,minHeight)
+        local value=tostring(object.Text or '')
+        if value==''then return 0 end
+        local fontSize=object.TextSize or 14
+        local measured
+        pcall(function()measured=game:GetService('TextService'):GetTextSize(value,fontSize,Enum.Font.Gotham,Vector2.new(math.max(1,width),10000)).Y end)
+        if not measured then measured=math.ceil(#value*fontSize*.56/math.max(1,width))*fontSize*1.3 end
+        return math.max(minHeight or fontSize+4,math.ceil(measured)+6)
+    end
     for _, p in pairs(pages) do
         p.Heading.Visible, p.Subtitle.Visible = false, false
         place(p.Status, 0, 0, cw, 28)
@@ -1072,30 +1090,42 @@ layout = function()
             if c.Wide and column == 1 then y, column, rowHeight = y + rowHeight + 10, 0, 0 end
             local width = c.Wide and cw or controlW
             local height = (c.Kind == "slider" or c.Kind == "input") and 100 or 80
+            local textWidth=width-112
+            local titleHeight=textHeight(c.Title,textWidth,22)
+            local subtitleHeight=textHeight(c.Subtitle,textWidth,18)
+            if c.Kind=='toggle'or c.Kind=='button'then height=math.max(94,30+titleHeight+subtitleHeight)end
+            if c.Kind=='choice'or c.Kind=='input'or c.Kind=='slider'then
+                titleHeight=textHeight(c.Title,width-32,22)
+                height=math.max(c.Kind=='slider'and 108 or 94,52+titleHeight+34)
+            end
             if c.Kind=="custom" then height=c.CustomHeight end
-            if c.Kind == "choice" and c.Open then height = 92 + math.min(#c.Values * 36 + 8, 188) end
+            if c.Kind == "choice" and c.Open then height = titleHeight+68 + math.min(#c.Values * 36 + 8, 188) end
             if c.Kind == "foldout" and c.Open then height = 90 + math.min(#c.Items * 40, 240) end
             place(c.Root, column * (controlW + 12), y, width, height)
-            place(c.Title, 14, 10, width - 110, 24)
-            place(c.Subtitle, 14, 38, width - 110, 30)
+            place(c.Title,16,14,textWidth,titleHeight)
+            place(c.Subtitle,16,20+titleHeight,textWidth,subtitleHeight)
             if c.Kind=="custom" then
                 place(c.Title,14,10,width-28,25);c.Subtitle.Visible=false
                 place(c.Body,14,44,width-28,height-58)
             elseif c.Kind == "slider" then
-                place(c.Title, 14, 8, width - 120, 24)
-                place(c.Subtitle, 14, 34, width - 28, 22)
-                place(c.Value, width - 104, 8, 90, 24)
-                place(c.Input, 18, 59, width - 36, 36)
-                place(c.Track, 0, 15, width - 36, 5)
+                place(c.Title,16,12,width-32,titleHeight)
+                c.Subtitle.Visible=false
+                place(c.Value,width-114,12+titleHeight,98,24)
+                place(c.Input,18,40+titleHeight,width-36,36)
+                place(c.Track,0,15,width-36,5)
             elseif c.Kind == "toggle" then
-                place(c.Input, width - 62, 26, 48, 28)
-                place(c.RowTap, 0, 0, width - 76, 80)
+                local switchY=math.floor((height-44)/2)
+                place(c.Input,width-64,switchY,48,28)
+                place(c.StateLabel,width-70,switchY+32,60,14)
+                place(c.RowTap,0,0,width-76,height)
             elseif c.Kind == "choice" then
-                place(c.Title, 14, 8, width - 28, 24)
-                c.Subtitle.Visible = false
-                place(c.Input, 14, 39, width - 28, 32)
-                place(c.List, 10, 84, width - 20, height - 92)
-                for index, option in ipairs(c.OptionButtons) do place(option, 4, 4 + (index - 1) * 36, width - 32, 34) end
+                place(c.Title,16,12,width-32,titleHeight)
+                c.Subtitle.Visible=false
+                local inputY=20+titleHeight
+                place(c.Input,14,inputY,width-28,34)
+                local listY=inputY+42
+                place(c.List,10,listY,width-20,height-listY-10)
+                for index,option in ipairs(c.OptionButtons)do place(option,4,4+(index-1)*36,width-32,34)end
             elseif c.Kind == "foldout" then
                 place(c.Title, 14, 10, width - 210, 24)
                 place(c.Subtitle, 14, 37, width - 210, 24)
@@ -1106,16 +1136,17 @@ layout = function()
                     place(item.Root, 0, (index - 1) * 40, width - 34, 40)
                     place(item.Title, 10, 5, width - 116, 30)
                     item.Title.TextSize = 14; item.Subtitle.Visible = false
+                    if item.StateLabel then item.StateLabel.Visible=false end
                     place(item.Input, width - 96, 6, 48, 28)
                     place(item.RowTap, 0, 0, width - 110, 40)
                 end
                 c.Render()
             elseif c.Kind == "input" then
-                place(c.Title, 14, 8, width - 28, 24)
-                c.Subtitle.Visible = false
-                place(c.Input, 14, 43, width - 28, 40)
+                place(c.Title,16,12,width-32,titleHeight)
+                c.Subtitle.Visible=false
+                place(c.Input,14,20+titleHeight,width-28,40)
             else
-                place(c.Input, width - 96, 24, 82, 34)
+                place(c.Input,width-94,math.floor((height-36)/2),78,36)
             end
             if c.Wide then
                 y, column, rowHeight = y + height + 10, 0, 0
@@ -1306,7 +1337,7 @@ end
 ["tiki_engine.lua"]=function()return fetch("m/b8020333577d452ed604.lua",85468)end,
 ["levi_engine.lua"]=function()return fetch("m/1da1d0443d8bdd30be7a.lua",176766)end,
 ["modules/misc/flags.lua"]=function()return fetch("m/c511cd948f718ef18e9a.lua",2702)end,
-["modules/visuals/hit_feedback.lua"]=function()return fetch("m/767f799c96d07888b5df.lua",4306)end
+["modules/visuals/hit_feedback.lua"]=function()return fetch("m/8b8a4f25a7a7c25f22f3.lua",5431)end
 }
 end)()
     local featureSources = {
@@ -1979,6 +2010,20 @@ AddButton(avatar,'Apply avatar',function()assert(cloneInput~='','Enter a usernam
 AddButton(avatar,'Restore original avatar',function()RequireModule('modules/visuals/skins_system.lua').resetClonedAvatar()end)
 ]==========],
 ["Visual"]=[==========[
+local feedback=RequireModule('modules/visuals/hit_feedback.lua')
+local hitCard=CreateCard(VisualsPage,'Hit feedback')
+AddToggle(hitCard,'Bullet effects','Show a tracer when the native damage feedback registers a recent attack.',false,function(v)feedback.SetBullets(v)end)
+AddToggle(hitCard,'Ability impact effects','Add a local impact effect to native damage feedback.',false,function(v)feedback.SetHits(v)end)
+AddToggle(hitCard,'Custom hit sounds','Play the selected sound when an attack produces damage feedback.',false,function(v)feedback.SetSound(v)end)
+AddButton(hitCard,'Preview effects',function()feedback.PreviewEffects()end)
+AddChoice(hitCard,'Bullet effect style',{'Neon','Lightning'},1,function(v)feedback.Style=v end)
+AddChoice(hitCard,'Impact style',{'Pulse','Shatter'},1,function(v)feedback.HitStyle=v end)
+local soundIds={Click='rbxasset://sounds/button.wav',Bell='rbxassetid://6534947240',Pop='rbxassetid://9118823106'}
+AddChoice(hitCard,'Hit sound',{'Click','Bell','Pop'},1,function(v)feedback.SoundId=soundIds[v]end)
+AddInput(hitCard,'Custom hit sound ID','Optional Roblox sound asset ID','',function(v)if tostring(v):match('%d+')then feedback.SoundId='rbxassetid://'..tostring(v):match('%d+')end end)
+AddSlider(hitCard,'Hit sound volume (%)',0,100,50,5,function(v)feedback.Volume=v/100 end)
+AddChoice(hitCard,'Hit effect color',{'Cyan','White','Blue','Pink','Red','Green'},1,function(v)feedback.Color=THEMES[v]end)
+AddButton(hitCard,'Preview hit sound',function()feedback.TestSound()end)
 local buddhaCard = CreateCard(VisualsPage, "Buddha Rainbow Circle")
 AddToggle(buddhaCard, "Buddha Rainbow Circle", "Recolors your Buddha circle with animated rainbow gradient (Client-only)", false, function(state)
 local br = M.getBuddhaRainbow()
@@ -1999,19 +2044,6 @@ end
 Notify("Ghost Ship", state and "Ghost Ship structures deleted." or "Ghost Ship deletion stopped.")
 pcall(SaveConfigProfile)
 end)
-local feedback=RequireModule('modules/visuals/hit_feedback.lua')
-local hitCard=CreateCard(VisualsPage,'Hit feedback')
-AddToggle(hitCard,'Bullet effects','Show a tracer when the native damage feedback registers a recent attack.',false,function(v)feedback.SetBullets(v)end)
-AddChoice(hitCard,'Bullet effect style',{'Neon','Lightning'},1,function(v)feedback.Style=v end)
-AddToggle(hitCard,'Ability impact effects','Add a local impact effect to native damage feedback.',false,function(v)feedback.SetHits(v)end)
-AddChoice(hitCard,'Impact style',{'Pulse','Shatter'},1,function(v)feedback.HitStyle=v end)
-AddToggle(hitCard,'Custom hit sounds','Play the selected sound when an attack produces damage feedback.',false,function(v)feedback.SetSound(v)end)
-local soundIds={Click='rbxasset://sounds/button.wav',Bell='rbxassetid://6534947240',Pop='rbxassetid://9118823106'}
-AddChoice(hitCard,'Hit sound',{'Click','Bell','Pop'},1,function(v)feedback.SoundId=soundIds[v]end)
-AddInput(hitCard,'Custom hit sound ID','Optional Roblox sound asset ID','',function(v)if tostring(v):match('%d+')then feedback.SoundId='rbxassetid://'..tostring(v):match('%d+')end end)
-AddSlider(hitCard,'Hit sound volume (%)',0,100,50,5,function(v)feedback.Volume=v/100 end)
-AddChoice(hitCard,'Hit effect color',{'Cyan','White','Blue','Pink','Red','Green'},1,function(v)feedback.Color=THEMES[v]end)
-AddButton(hitCard,'Preview hit sound',function()feedback.TestSound()end)
 ]==========],
 ["Music"]=[==========[
 local ytCard = CreateCard(MusicPage, "YouTube & External Players")
@@ -2186,15 +2218,11 @@ local function show(message)if report then report.Text=tostring(message)end;Noti
 local function apply(value)local ok,result=pcall(function()return flags.Apply(value)end);show(ok and result or tostring(result));return ok end
 AddChoice(c,'FFlags preset',{'Low textures','No grass','No MSAA'},1,function(v)chosen=v end)
 AddButton(c,'Run selected preset',function()apply(HttpService:JSONEncode(presets[chosen]))end)
-AddCustom(c,'JSON editor',290,function(body)
-editor=Instance.new('TextBox');editor.Name='FFlagsJSON';editor.MultiLine=true;editor.ClearTextOnFocus=false;editor.TextWrapped=true;editor.TextXAlignment=Enum.TextXAlignment.Left;editor.TextYAlignment=Enum.TextYAlignment.Top
-editor.Text=text;editor.PlaceholderText='{"DFIntTextureQualityOverride": 0}';editor.Font=Enum.Font.Code;editor.TextSize=14;editor.TextColor3=Color3.fromRGB(225,230,238);editor.BackgroundColor3=Color3.fromRGB(10,12,16);editor.BorderSizePixel=0;editor.Size=UDim2.fromScale(1,1);editor.Parent=body
-editor:GetPropertyChangedSignal('Text'):Connect(function()text=editor.Text;SetPersistent('FFlagsJSON',text)end)
-end)
+editor=AddTextEditor(c,'FFlags JSON',340,{Name='FFlagsJSON',Text=text,Placeholder='{\"DFIntTextureQualityOverride\": 0}',Code=true},function(value)text=value;SetPersistent('FFlagsJSON',value)end)
 AddButton(c,'Execute FFlags JSON',function()text=editor.Text;SetPersistent('FFlagsJSON',text);apply(text)end)
 AddButton(c,'Restore original flag values',function()show(flags.Restore())end)
 AddToggle(c,'Apply saved FFlags on startup','Only runs your saved JSON when this option is enabled.',false,function(v)if v then apply(GetPersistent('FFlagsJSON')or text)end end)
-AddCustom(c,'Execution results',220,function(body)local W=RequireModule('modules/ui/widgets.lua');report=W.Text(body,'Actual setter and readback results appear here. Some flags require a restart or are blocked by the client.',0,0,1,170,13);report.TextWrapped=true;report.TextYAlignment=Enum.TextYAlignment.Top end)
+report=AddTextEditor(c,'Execution results',240,{Name='FFlagsResults',Text='Run a preset or your JSON to see verified, accepted and failed flags.',ReadOnly=true})
 local perf=CreateCard(FFlagsPage,'Client performance')
 AddToggle(perf,'Client FPS booster','Apply the existing client rendering optimizations.',false,SetFFlags1)
 AddToggle(perf,'No Animations','Disable non-attack animations.',false,SetNoAnimations)
@@ -2567,11 +2595,8 @@ local bodyInput,status
 local lastSend=-100
 AddChoice(c,'Report type',{'Bug report','Suggestion'},1,function(v)category=v end)
 AddInput(c,'Report title','Short title in English','',function(v)title=v end)
-AddCustom(c,'Report message',260,function(body)
-bodyInput=Instance.new('TextBox');bodyInput.MultiLine=true;bodyInput.TextWrapped=true;bodyInput.ClearTextOnFocus=false;bodyInput.Text=GetPersistent('SupportDraft')or '';bodyInput:GetPropertyChangedSignal('Text'):Connect(function()SetPersistent('SupportDraft',bodyInput.Text)end);bodyInput.PlaceholderText='Write in English. For bugs, include steps to reproduce, expected behavior and what happened.'
-bodyInput.TextXAlignment=Enum.TextXAlignment.Left;bodyInput.TextYAlignment=Enum.TextYAlignment.Top;bodyInput.Font=Enum.Font.Gotham;bodyInput.TextSize=14;bodyInput.TextColor3=Color3.fromRGB(225,230,238);bodyInput.BackgroundColor3=Color3.fromRGB(10,12,16);bodyInput.BorderSizePixel=0;bodyInput.Size=UDim2.fromScale(1,1);bodyInput.Parent=body
-end)
-AddCustom(c,'Submission status',110,function(body)status=W.Text(body,'Sends only the report you write, report type, and game place ID. No automatic submissions.',0,0,1,70,13);status.TextWrapped=true end)
+bodyInput=AddTextEditor(c,'Report message',320,{Name='SupportMessage',Text=GetPersistent('SupportDraft')or '',Placeholder='Write in English. Include steps to reproduce, expected behavior and what happened.'},function(value)SetPersistent('SupportDraft',value)end)
+AddCustom(c,'Submission status',132,function(body)status=W.Text(body,'Your message is sent only when you press Send report.',0,0,1,64,14);status.Size=UDim2.fromScale(1,1);status.TextYAlignment=Enum.TextYAlignment.Top;status.TextWrapped=true end)
 AddButton(c,'Send report',function()
 assert(os.clock()-lastSend>=30,'Wait 30 seconds between reports')
 message=bodyInput.Text
@@ -2907,7 +2932,7 @@ return function(base, sources, specs, native)
     return host
 end
 ]==========],"host.lua")()
-    local moduleHost=hostFactory(engineEnv,sourceModules,{["modules/ai/mika.lua"]={["Methods"]={["SetThemeColor"]=true,["RandomPhrase"]=true,["SetSize"]=true,["Express"]=true,["SetTools"]=true,["SetFollow"]=true,["GetActive"]=true,["Speak"]=true,["ReactToLowHp"]=true,["ReactToKill"]=true,["HideBubble"]=true,["Destroy"]=true,["SetVisible"]=true,["ReactToDeath"]=true,["SetAutoTalk"]=true,["Spawn"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/aimbot_core.lua"]={["Methods"]={["installHooks"]=true,["getFOVRadius"]=true,["resolveAnyTarget"]=true,["SetPlayerLock"]=true,["stopLoop"]=true,["getFOVCenter"]=true,["toggleLockPlayer"]=true,["faceTarget"]=true,["__newindex"]=true,["__index"]=true,["isKeyBlacklisted"]=true,["predictPosition"]=true,["getToolCategory"]=true,["setLockPlayer"]=true,["isPlayerBlacklisted"]=true,["startLoop"]=true,["setCurrentSkillKey"]=true},["Dependencies"]={["modules/pvp/floating_widget.lua"]=true},["Defaults"]={["FOV"]={["Radius"]=100,["Mode"]="Center"},["BlacklistedKeys"]={["Melee"]={},["Fruit"]={},["Sword"]={},["Gun"]={}}}},["modules/combat/blacklist.lua"]={["Methods"]={["set"]=true,["apply"]=true,["add"]=true,["get"]=true,["remove"]=true,["reset"]=true,["getTable"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/dungeon_engine.lua"]={["Methods"]={["SetVoid"]=true,["Destroy"]=true,["SetEnabled"]=true,["SetOption"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/fast_attack_fruits.lua"]={["Methods"]={["toggle"]=true,["enable"]=true,["disable"]=true,["isEnabled"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/fov.lua"]={["Methods"]={["toggle"]=true,["enable"]=true,["setRadius"]=true,["disable"]=true,["setThickness"]=true,["setRainbow"]=true,["isAimModeFov"]=true,["destroy"]=true,["setColor"]=true,["isEnabled"]=true,["setAimMode"]=true,["getRadius"]=true,["setMode"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/kit_one_shot.lua"]={["Methods"]={["IsTransformed"]=true,["toggle"]=true,["IsGas"]=true,["GetFruit"]=true,["IsControl"]=true,["ScanTapFn"]=true,["GetTapState"]=true,["IsPain"]=true,["IsDragon"]=true,["setDelay"]=true,["IsTrex"]=true,["MaxCombo"]=true,["isEnabled"]=true,["TapInterval"]=true,["IsBlade"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/npc_aimbot.lua"]={["Methods"]={["setMaxRange"]=true,["enable"]=true,["disable"]=true,["isEnabled"]=true},["Dependencies"]={["modules/combat/aimbot_core.lua"]=true},["Defaults"]={}},["modules/combat/player_aimbot.lua"]={["Methods"]={["enable"]=true,["setPrediction"]=true,["disable"]=true,["setTeamCheck"]=true,["setMaxRange"]=true,["setHitbox"]=true,["setPriority"]=true,["isEnabled"]=true,["setSelectedPlayer"]=true,["setAimMode"]=true},["Dependencies"]={["modules/combat/aimbot_core.lua"]=true},["Defaults"]={}},["modules/combat/saishi_one_shot.lua"]={["Methods"]={["CreateUI"]=true,["Execute"]=true,["SetEnabled"]=true,["RemoveUI"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/tracers.lua"]={["Methods"]={["setOrigin"]=true,["enable"]=true,["disable"]=true,["setRainbow"]=true,["setThickness"]=true,["setType"]=true,["destroy"]=true,["setColor"]=true,["isEnabled"]=true,["setVisible"]=true},["Dependencies"]={},["Defaults"]={}},["modules/core/embedded_assets.lua"]={["Methods"]={},["Dependencies"]={},["Defaults"]={}},["modules/esp/design.lua"]={["Methods"]={["Part"]=true,["New"]=true,["Destroy"]=true,["Draw"]=true},["Dependencies"]={},["Defaults"]={}},["modules/esp/esp_pvp.lua"]={["Methods"]={["toggle"]=true,["enable"]=true,["disable"]=true,["Destroy"]=true,["SetEnabled"]=true},["Dependencies"]={["modules/esp/design.lua"]=true},["Defaults"]={}},["modules/macro/macro_engine.lua"]={["Methods"]={["toggle"]=true,["setSlot"]=true,["startMacro"]=true,["ensureMobileButton"]=true,["setStatusCallback"]=true,["stopMacro"]=true,["executeCombo"]=true},["Dependencies"]={},["Defaults"]={["ActiveSlot"]=1,["Slots"]={{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}}}}},["modules/macro/macro_tab.lua"]={["Methods"]={["Build"]=true},["Dependencies"]={["modules/macro/macro_engine.lua"]=true},["Defaults"]={}},["modules/misc/client_tweaks.lua"]={["Methods"]={["SetNoAnimations"]=true,["SetFFlags1"]=true,["ResetAll"]=true,["ApplyFastFFlags"]=true},["Dependencies"]={},["Defaults"]={}},["modules/misc/ghost_ship.lua"]={["Methods"]={["DeleteStructure"]=true,["SetEnabled"]=true,["StartLoop"]=true},["Dependencies"]={},["Defaults"]={}},["modules/mobility/movement_engine.lua"]={["Methods"]={["SetSuperJumpPower"]=true,["SetWalkSpeedValue"]=true,["SetSuperJump"]=true,["SetInfiniteJump"]=true,["SetWalkOnWater"]=true,["SetWalkSpeed"]=true,["SetAntiLava"]=true,["SetFlySpeed"]=true,["SetDashDistance"]=true,["SetDashLength"]=true,["SetNoclip"]=true,["SetFly"]=true,["DoSuperJump"]=true,["ResetAll"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/auto_combat.lua"]={["Methods"]={["SetAutoV3"]=true,["SetAutoV4"]=true,["ResetAll"]=true,["SetAutoBuso"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/camlock.lua"]={["Methods"]={["DarlingX_SetCamlock"]=true,["SetKeybind"]=true,["Lock"]=true,["ToggleActive"]=true,["StartLoop"]=true,["SetCameraFOV"]=true,["SetEnabled"]=true,["Unlock"]=true,["SetSmoothness"]=true,["StopLoop"]=true,["DarlingX_ToggleCamlock"]=true,["Toggle"]=true,["SetActive"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/dragon_gun_m1.lua"]={["Methods"]={},["Dependencies"]={["modules/pvp/extra_widgets.lua"]=true},["Defaults"]={}},["modules/pvp/extra_widgets.lua"]={["Methods"]={},["Dependencies"]={["modules/pvp/camlock.lua"]=true,["modules/combat/aimbot_core.lua"]=true},["Defaults"]={}},["modules/pvp/fast_attack.lua"]={["Methods"]={["toggle"]=true,["enable"]=true,["disable"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/floating_widget.lua"]={["Methods"]={["Set"]=true,["SetWidgetVisible"]=true,["create"]=true,["SetLabel"]=true,["Destroy"]=true,["Toggle"]=true,["SetVisible"]=true,["LockAll"]=true,["SetState"]=true,["GetWidget"]=true,["TriggerAction"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/hitbox_expander.lua"]={["Methods"]={["SetVisuals"]=true,["SetEnabled"]=true,["SetSize"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/sanguine_boost.lua"]={["Methods"]={},["Dependencies"]={["modules/pvp/extra_widgets.lua"]=true},["Defaults"]={}},["modules/pvp/static_cam.lua"]={["Methods"]={["SetEnabled"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/tracker.lua"]={["Methods"]={["RemoveWidget"]=true,["SetEnabled"]=true,["CreateWidget"]=true},["Dependencies"]={},["Defaults"]={}},["modules/soru/soru_controller.lua"]={["Methods"]={["BeginAim"]=true,["setSkillCombo"]=true,["Destroy"]=true,["ActivateButton"]=true,["setButtonEnabled"]=true,["SoruToNearest"]=true,["setInfinite"]=true,["setAimbot"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/admin_cinematic.lua"]={["Methods"]={["destroy"]=true,["play"]=true,["enable"]=true,["stop"]=true,["dismiss"]=true,["Stop"]=true,["isPlaying"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/comeback_cinematic.lua"]={["Methods"]={["wedge"]=true,["shard"]=true,["stop"]=true,["part"]=true,["rod"]=true,["update"]=true,["ball"]=true,["plate"]=true,["Stop"]=true,["isPlaying"]=true,["loft"]=true,["enable"]=true,["horn"]=true,["gem"]=true,["surface"]=true,["destroy"]=true,["play"]=true,["dismiss"]=true,["triangle"]=true,["nativeSurface"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/halloween_cinematic.lua"]={["Methods"]={["Skip"]=true,["play"]=true,["stop"]=true,["Stop"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/kings_throne.lua"]={["Methods"]={["playCinematic"]=true,["Update"]=true,["createParticleEmitter"]=true,["AddShake"]=true,["SmoothRestore"]=true,["mount"]=true,["SetCosmicMidnight"]=true,["createPart"]=true,["setHidden"]=true,["createDiamond"]=true,["TriggerMeganovaFlash"]=true,["SmoothHandOff"]=true,["play"]=true,["dismiss"]=true,["createLightningBolt"]=true,["new"]=true,["dismount"]=true},["Dependencies"]={["modules/utility/music_engine.lua"]=true},["Defaults"]={}},["modules/special/sanctuary_cinematic.lua"]={["Methods"]={["Skip"]=true,["play"]=true,["stop"]=true,["Stop"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/transcendence_dragon.lua"]={["Methods"]={["startFlightController"]=true,["setHidden"]=true,["setMountPromptVisible"]=true,["toggleMount"]=true,["spawnDirect"]=true,["toggleHidden"]=true,["mount"]=true,["play"]=true,["dismiss"]=true,["dismount"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/worldbreaker.lua"]={["Methods"]={["play"]=true,["stop"]=true,["Stop"]=true,["samplePoint"]=true},["Dependencies"]={},["Defaults"]={}},["modules/ui/controls_hud.lua"]={["Methods"]={},["Dependencies"]={},["Defaults"]={}},["modules/ui/keybinds_system.lua"]={["Methods"]={["SetKey"]=true,["ClearAll"]=true,["Save"]=true,["GetBindable"]=true,["RemoveKeybind"]=true,["Init"]=true,["SetMode"]=true,["Load"]=true,["AddKeybind"]=true,["RegisterBindable"]=true,["GetAllBindablesList"]=true},["Dependencies"]={},["Defaults"]={}},["modules/ui/widgets.lua"]={["Methods"]={["Text"]=true,["SetPlayer"]=true,["Destroy"]=true,["Project"]=true,["Geometry"]=true,["Palette"]=true,["Profile"]=true,["Data"]=true,["FruitImage"]=true,["SetHighlight"]=true,["Viewport"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/avatar_changer.lua"]={["Methods"]={["getStatus"]=true,["isGiant"]=true,["apply"]=true,["applyAsync"]=true,["onStatusChanged"]=true,["destroy"]=true,["getActiveId"]=true,["setGiant"]=true,["reset"]=true,["getDiagnostics"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/buddha_rainbow.lua"]={["Methods"]={["start"]=true,["toggle"]=true,["stop"]=true,["isEnabled"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/fruit_palette.lua"]={["Methods"]={["Destroy"]=true,["Reset"]=true,["Apply"]=true},["Dependencies"]={["modules/visuals/skins_system.lua"]=true},["Defaults"]={}},["modules/visuals/skins_system.lua"]={["Methods"]={["resetCategoryToolSkin"]=true,["getTargetItem"]=true,["applyToolSkin"]=true,["startVFXWatchers"]=true,["stopVFXWatchers"]=true,["cloneCharacterAppearance"]=true,["setVFXColor"]=true,["applyCharacterSkin"]=true,["getDiagnostics"]=true,["refreshAllVFX"]=true,["resetClonedAvatar"]=true,["cloneByUserId"]=true,["recolorAllHotbarSlots"]=true,["resetCharacterSkin"]=true,["destroy"]=true,["setVFXEnabled"]=true,["resetAllToolSkins"]=true,["setAuraEnabled"]=true,["resetOriginalVFX"]=true,["cloneNearestPlayer"]=true},["Dependencies"]={["modules/visuals/avatar_changer.lua"]=true},["Defaults"]={["VFX"]={},["Tools"]={},["Character"]={}}},["modules/visuals/sky_changer.lua"]={["Methods"]={["SetEnabled"]=true,["SetPreset"]=true,["ApplySky"]=true,["Reset"]=true},["Dependencies"]={},["Defaults"]={}},["tiki_engine.lua"]={["Methods"]={["Allow"]=true,["SetEnabled"]=true,["ClickArenaM1"]=true,["Read"]=true,["ArenaController"]=true,["GetReportPayload"]=true,["Number"]=true,["GetStats"]=true,["ArenaInputBlocked"]=true,["Finite"]=true,["MaintainBuso"]=true,["PrepareGate"]=true,["ArenaNativeM1"]=true,["QuantumShoot"]=true,["SaveWebhook"]=true,["Destroy"]=true,["ReleaseArenaInput"]=true,["GetBreakableDiagnostics"]=true,["SetOption"]=true,["SetWebhook"]=true,["AimAt"]=true,["SetWeapon"]=true,["ReadEyeProgress"]=true,["SaveSettings"]=true,["SetFarming"]=true,["HitPart"]=true,["GunValidator"]=true},["Dependencies"]={},["Defaults"]={["State"]={["Phase"]="Inactive",["BossDefeats"]=0},["Config"]={}}},["levi_engine.lua"]={["Methods"]={["RJR_ResetCharacterAtTiki"]=true,["ApplyFPSBoost"]=true,["RJR_BreakPhantomSeat"]=true,["ApplyAntiDracoAura"]=true,["RJR_SeatConfirmed"]=true,["Destroy"]=true,["SetEnabled"]=true,["RJR_StartKenLoop"]=true,["SetOption"]=true,["RJR_LeviathanPresent"]=true,["ApplyAutoFastMode"]=true,["RJR_StartBoatDeadMonitor"]=true,["RJR_ResetMapNoclipState"]=true,["RJR_RefreshStatus"]=true,["GetStatus"]=true},["Dependencies"]={},["Defaults"]={}},["modules/misc/flags.lua"]={["Methods"]={["Restore"]=true,["Apply"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/hit_feedback.lua"]={["Methods"]={["TestSound"]=true,["SetHits"]=true,["SetBullets"]=true,["SetSound"]=true,["Destroy"]=true},["Dependencies"]={},["Defaults"]={}}},{game=game,workspace=workspace,Instance=Instance,task=task,
+    local moduleHost=hostFactory(engineEnv,sourceModules,{["modules/ai/mika.lua"]={["Methods"]={["SetTools"]=true,["SetVisible"]=true,["SetThemeColor"]=true,["Destroy"]=true,["Spawn"]=true,["Express"]=true,["SetAutoTalk"]=true,["SetSize"]=true,["GetActive"]=true,["ReactToKill"]=true,["ReactToDeath"]=true,["Speak"]=true,["ReactToLowHp"]=true,["HideBubble"]=true,["RandomPhrase"]=true,["SetFollow"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/aimbot_core.lua"]={["Methods"]={["isPlayerBlacklisted"]=true,["getFOVRadius"]=true,["__newindex"]=true,["getFOVCenter"]=true,["__index"]=true,["isKeyBlacklisted"]=true,["setLockPlayer"]=true,["faceTarget"]=true,["installHooks"]=true,["SetPlayerLock"]=true,["getToolCategory"]=true,["toggleLockPlayer"]=true,["predictPosition"]=true,["resolveAnyTarget"]=true,["stopLoop"]=true,["startLoop"]=true,["setCurrentSkillKey"]=true},["Dependencies"]={["modules/pvp/floating_widget.lua"]=true},["Defaults"]={["FOV"]={["Radius"]=100,["Mode"]="Center"},["BlacklistedKeys"]={["Melee"]={},["Fruit"]={},["Sword"]={},["Gun"]={}}}},["modules/combat/blacklist.lua"]={["Methods"]={["remove"]=true,["apply"]=true,["getTable"]=true,["add"]=true,["reset"]=true,["get"]=true,["set"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/dungeon_engine.lua"]={["Methods"]={["SetVoid"]=true,["Destroy"]=true,["SetEnabled"]=true,["SetOption"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/fast_attack_fruits.lua"]={["Methods"]={["enable"]=true,["isEnabled"]=true,["disable"]=true,["toggle"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/fov.lua"]={["Methods"]={["isEnabled"]=true,["setAimMode"]=true,["enable"]=true,["disable"]=true,["setRainbow"]=true,["toggle"]=true,["setRadius"]=true,["setMode"]=true,["destroy"]=true,["setThickness"]=true,["setColor"]=true,["isAimModeFov"]=true,["getRadius"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/kit_one_shot.lua"]={["Methods"]={["IsPain"]=true,["isEnabled"]=true,["MaxCombo"]=true,["GetFruit"]=true,["GetTapState"]=true,["IsBlade"]=true,["toggle"]=true,["ScanTapFn"]=true,["setDelay"]=true,["IsGas"]=true,["IsTrex"]=true,["IsTransformed"]=true,["IsControl"]=true,["TapInterval"]=true,["IsDragon"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/npc_aimbot.lua"]={["Methods"]={["enable"]=true,["isEnabled"]=true,["setMaxRange"]=true,["disable"]=true},["Dependencies"]={["modules/combat/aimbot_core.lua"]=true},["Defaults"]={}},["modules/combat/player_aimbot.lua"]={["Methods"]={["setSelectedPlayer"]=true,["isEnabled"]=true,["setAimMode"]=true,["enable"]=true,["disable"]=true,["setHitbox"]=true,["setPrediction"]=true,["setPriority"]=true,["setMaxRange"]=true,["setTeamCheck"]=true},["Dependencies"]={["modules/combat/aimbot_core.lua"]=true},["Defaults"]={}},["modules/combat/saishi_one_shot.lua"]={["Methods"]={["RemoveUI"]=true,["SetEnabled"]=true,["CreateUI"]=true,["Execute"]=true},["Dependencies"]={},["Defaults"]={}},["modules/combat/tracers.lua"]={["Methods"]={["setThickness"]=true,["isEnabled"]=true,["setOrigin"]=true,["enable"]=true,["disable"]=true,["setRainbow"]=true,["destroy"]=true,["setType"]=true,["setVisible"]=true,["setColor"]=true},["Dependencies"]={},["Defaults"]={}},["modules/core/embedded_assets.lua"]={["Methods"]={},["Dependencies"]={},["Defaults"]={}},["modules/esp/design.lua"]={["Methods"]={["New"]=true,["Destroy"]=true,["Part"]=true,["Draw"]=true},["Dependencies"]={},["Defaults"]={}},["modules/esp/esp_pvp.lua"]={["Methods"]={["enable"]=true,["Destroy"]=true,["SetEnabled"]=true,["disable"]=true,["toggle"]=true},["Dependencies"]={["modules/esp/design.lua"]=true},["Defaults"]={}},["modules/macro/macro_engine.lua"]={["Methods"]={["stopMacro"]=true,["executeCombo"]=true,["setSlot"]=true,["startMacro"]=true,["ensureMobileButton"]=true,["setStatusCallback"]=true,["toggle"]=true},["Dependencies"]={},["Defaults"]={["ActiveSlot"]=1,["Slots"]={{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}},{["Blocks"]={{},{},{},{},{},{}}}}}},["modules/macro/macro_tab.lua"]={["Methods"]={["Build"]=true},["Dependencies"]={["modules/macro/macro_engine.lua"]=true},["Defaults"]={}},["modules/misc/client_tweaks.lua"]={["Methods"]={["ApplyFastFFlags"]=true,["SetNoAnimations"]=true,["SetFFlags1"]=true,["ResetAll"]=true},["Dependencies"]={},["Defaults"]={}},["modules/misc/ghost_ship.lua"]={["Methods"]={["StartLoop"]=true,["DeleteStructure"]=true,["SetEnabled"]=true},["Dependencies"]={},["Defaults"]={}},["modules/mobility/movement_engine.lua"]={["Methods"]={["SetWalkSpeedValue"]=true,["SetWalkSpeed"]=true,["SetNoclip"]=true,["SetWalkOnWater"]=true,["SetDashDistance"]=true,["SetSuperJump"]=true,["SetFly"]=true,["ResetAll"]=true,["SetInfiniteJump"]=true,["SetFlySpeed"]=true,["DoSuperJump"]=true,["SetDashLength"]=true,["SetSuperJumpPower"]=true,["SetAntiLava"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/auto_combat.lua"]={["Methods"]={["SetAutoV3"]=true,["ResetAll"]=true,["SetAutoV4"]=true,["SetAutoBuso"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/camlock.lua"]={["Methods"]={["Toggle"]=true,["StartLoop"]=true,["StopLoop"]=true,["Unlock"]=true,["DarlingX_SetCamlock"]=true,["SetKeybind"]=true,["DarlingX_ToggleCamlock"]=true,["SetSmoothness"]=true,["ToggleActive"]=true,["Lock"]=true,["SetActive"]=true,["SetCameraFOV"]=true,["SetEnabled"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/dragon_gun_m1.lua"]={["Methods"]={},["Dependencies"]={["modules/pvp/extra_widgets.lua"]=true},["Defaults"]={}},["modules/pvp/extra_widgets.lua"]={["Methods"]={},["Dependencies"]={["modules/pvp/camlock.lua"]=true,["modules/combat/aimbot_core.lua"]=true},["Defaults"]={}},["modules/pvp/fast_attack.lua"]={["Methods"]={["enable"]=true,["disable"]=true,["toggle"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/floating_widget.lua"]={["Methods"]={["Toggle"]=true,["TriggerAction"]=true,["SetVisible"]=true,["GetWidget"]=true,["create"]=true,["SetLabel"]=true,["SetWidgetVisible"]=true,["SetState"]=true,["Destroy"]=true,["LockAll"]=true,["Set"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/hitbox_expander.lua"]={["Methods"]={["SetSize"]=true,["SetEnabled"]=true,["SetVisuals"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/sanguine_boost.lua"]={["Methods"]={},["Dependencies"]={["modules/pvp/extra_widgets.lua"]=true},["Defaults"]={}},["modules/pvp/static_cam.lua"]={["Methods"]={["SetEnabled"]=true},["Dependencies"]={},["Defaults"]={}},["modules/pvp/tracker.lua"]={["Methods"]={["SetEnabled"]=true,["CreateWidget"]=true,["RemoveWidget"]=true},["Dependencies"]={},["Defaults"]={}},["modules/soru/soru_controller.lua"]={["Methods"]={["BeginAim"]=true,["setInfinite"]=true,["setAimbot"]=true,["SoruToNearest"]=true,["setSkillCombo"]=true,["setButtonEnabled"]=true,["ActivateButton"]=true,["Destroy"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/admin_cinematic.lua"]={["Methods"]={["destroy"]=true,["play"]=true,["stop"]=true,["Stop"]=true,["enable"]=true,["isPlaying"]=true,["dismiss"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/comeback_cinematic.lua"]={["Methods"]={["Stop"]=true,["enable"]=true,["horn"]=true,["destroy"]=true,["shard"]=true,["isPlaying"]=true,["ball"]=true,["update"]=true,["plate"]=true,["triangle"]=true,["stop"]=true,["nativeSurface"]=true,["part"]=true,["loft"]=true,["gem"]=true,["dismiss"]=true,["rod"]=true,["surface"]=true,["wedge"]=true,["play"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/halloween_cinematic.lua"]={["Methods"]={["Skip"]=true,["Stop"]=true,["stop"]=true,["play"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/kings_throne.lua"]={["Methods"]={["setHidden"]=true,["AddShake"]=true,["createDiamond"]=true,["SmoothRestore"]=true,["createLightningBolt"]=true,["dismount"]=true,["TriggerMeganovaFlash"]=true,["SetCosmicMidnight"]=true,["new"]=true,["SmoothHandOff"]=true,["playCinematic"]=true,["Update"]=true,["dismiss"]=true,["createParticleEmitter"]=true,["createPart"]=true,["mount"]=true,["play"]=true},["Dependencies"]={["modules/utility/music_engine.lua"]=true},["Defaults"]={}},["modules/special/sanctuary_cinematic.lua"]={["Methods"]={["Skip"]=true,["Stop"]=true,["stop"]=true,["play"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/transcendence_dragon.lua"]={["Methods"]={["setHidden"]=true,["startFlightController"]=true,["toggleMount"]=true,["dismount"]=true,["dismiss"]=true,["setMountPromptVisible"]=true,["spawnDirect"]=true,["mount"]=true,["toggleHidden"]=true,["play"]=true},["Dependencies"]={},["Defaults"]={}},["modules/special/worldbreaker.lua"]={["Methods"]={["Stop"]=true,["samplePoint"]=true,["stop"]=true,["play"]=true},["Dependencies"]={},["Defaults"]={}},["modules/ui/controls_hud.lua"]={["Methods"]={},["Dependencies"]={},["Defaults"]={}},["modules/ui/keybinds_system.lua"]={["Methods"]={["GetAllBindablesList"]=true,["SetKey"]=true,["RemoveKeybind"]=true,["SetMode"]=true,["Load"]=true,["ClearAll"]=true,["AddKeybind"]=true,["Init"]=true,["Save"]=true,["GetBindable"]=true,["RegisterBindable"]=true},["Dependencies"]={},["Defaults"]={}},["modules/ui/widgets.lua"]={["Methods"]={["Profile"]=true,["SetPlayer"]=true,["Geometry"]=true,["Viewport"]=true,["Text"]=true,["FruitImage"]=true,["SetHighlight"]=true,["Data"]=true,["Destroy"]=true,["Project"]=true,["Palette"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/avatar_changer.lua"]={["Methods"]={["apply"]=true,["setGiant"]=true,["isGiant"]=true,["applyAsync"]=true,["getDiagnostics"]=true,["destroy"]=true,["onStatusChanged"]=true,["getStatus"]=true,["reset"]=true,["getActiveId"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/buddha_rainbow.lua"]={["Methods"]={["isEnabled"]=true,["start"]=true,["stop"]=true,["toggle"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/fruit_palette.lua"]={["Methods"]={["Apply"]=true,["Destroy"]=true,["Reset"]=true},["Dependencies"]={["modules/visuals/skins_system.lua"]=true},["Defaults"]={}},["modules/visuals/skins_system.lua"]={["Methods"]={["resetCharacterSkin"]=true,["startVFXWatchers"]=true,["cloneNearestPlayer"]=true,["getTargetItem"]=true,["applyCharacterSkin"]=true,["destroy"]=true,["setVFXEnabled"]=true,["setAuraEnabled"]=true,["stopVFXWatchers"]=true,["cloneByUserId"]=true,["cloneCharacterAppearance"]=true,["setVFXColor"]=true,["resetCategoryToolSkin"]=true,["resetClonedAvatar"]=true,["resetOriginalVFX"]=true,["refreshAllVFX"]=true,["getDiagnostics"]=true,["resetAllToolSkins"]=true,["recolorAllHotbarSlots"]=true,["applyToolSkin"]=true},["Dependencies"]={["modules/visuals/avatar_changer.lua"]=true},["Defaults"]={["VFX"]={},["Tools"]={},["Character"]={}}},["modules/visuals/sky_changer.lua"]={["Methods"]={["ApplySky"]=true,["SetEnabled"]=true,["SetPreset"]=true,["Reset"]=true},["Dependencies"]={},["Defaults"]={}},["tiki_engine.lua"]={["Methods"]={["SaveSettings"]=true,["AimAt"]=true,["SetWebhook"]=true,["ArenaController"]=true,["MaintainBuso"]=true,["SetWeapon"]=true,["SetFarming"]=true,["Finite"]=true,["ReleaseArenaInput"]=true,["PrepareGate"]=true,["SetOption"]=true,["GunValidator"]=true,["GetStats"]=true,["HitPart"]=true,["SetEnabled"]=true,["Number"]=true,["ArenaInputBlocked"]=true,["GetBreakableDiagnostics"]=true,["GetReportPayload"]=true,["QuantumShoot"]=true,["ReadEyeProgress"]=true,["Allow"]=true,["ClickArenaM1"]=true,["ArenaNativeM1"]=true,["Read"]=true,["Destroy"]=true,["SaveWebhook"]=true},["Dependencies"]={},["Defaults"]={["State"]={["Phase"]="Inactive",["BossDefeats"]=0},["Config"]={}}},["levi_engine.lua"]={["Methods"]={["ApplyAutoFastMode"]=true,["RJR_StartBoatDeadMonitor"]=true,["RJR_ResetCharacterAtTiki"]=true,["RJR_BreakPhantomSeat"]=true,["ApplyFPSBoost"]=true,["GetStatus"]=true,["RJR_RefreshStatus"]=true,["SetOption"]=true,["ApplyAntiDracoAura"]=true,["RJR_StartKenLoop"]=true,["RJR_SeatConfirmed"]=true,["Destroy"]=true,["SetEnabled"]=true,["RJR_LeviathanPresent"]=true,["RJR_ResetMapNoclipState"]=true},["Dependencies"]={},["Defaults"]={}},["modules/misc/flags.lua"]={["Methods"]={["Restore"]=true,["Apply"]=true},["Dependencies"]={},["Defaults"]={}},["modules/visuals/hit_feedback.lua"]={["Methods"]={["SetHits"]=true,["PreviewEffects"]=true,["Destroy"]=true,["TestSound"]=true,["SetBullets"]=true,["SetSound"]=true},["Dependencies"]={},["Defaults"]={}}},{game=game,workspace=workspace,Instance=Instance,task=task,
         hookmetamethod=hookmetamethod,getrawmetatable=getrawmetatable})
     requireModule=moduleHost.Require
     api.ModuleStatus=moduleHost.Status
@@ -2972,6 +2997,25 @@ end
         local item=control(cardInfo.Page,'custom','Custom_'..title:gsub('%W',''),title,'',{Height=height})
         build(item.Body);return item
     end
+    engineEnv.AddTextEditor=function(cardInfo,title,height,options,changed)
+        options=options or{}
+        local result
+        engineEnv.AddCustom(cardInfo,title,height,function(body)
+            local scroll=new('ScrollingFrame',{Name='EditorScroll',BackgroundColor3=Color3.fromRGB(12,13,16),BorderSizePixel=0,Size=UDim2.new(1,0,1,-26),
+                CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=5,ScrollBarImageColor3=C.Muted,ClipsDescendants=true,Active=true},body)
+            corner(scroll,10);stroke(scroll,C.Border,.3,1)
+            local box=new('TextBox',{Name=options.Name or 'Editor',Text=options.Text or '',PlaceholderText=options.Placeholder or '',ClearTextOnFocus=false,
+                MultiLine=true,TextWrapped=true,RichText=false,TextEditable=not options.ReadOnly,TextTruncate=Enum.TextTruncate.None,TextXAlignment=Enum.TextXAlignment.Left,
+                TextYAlignment=Enum.TextYAlignment.Top,TextSize=15,Font=options.Code and Enum.Font.Code or Enum.Font.Gotham,
+                TextColor3=C.Text,PlaceholderColor3=C.Muted,BackgroundTransparency=1,BorderSizePixel=0,Position=UDim2.fromOffset(12,12),
+                Size=UDim2.new(1,-32,0,math.max(80,height-112)),AutomaticSize=Enum.AutomaticSize.Y},scroll)
+            local footer=label(body,options.Note or (options.ReadOnly and 'Select text to copy results'or 'Changes are saved automatically'),11,C.Muted)
+            footer.Position=UDim2.new(0,2,1,-20);footer.Size=UDim2.new(1,-4,0,18)
+            if not options.ReadOnly then track(box:GetPropertyChangedSignal('Text'),function()if changed then changed(box.Text)end end)end
+            result=box
+        end)
+        return result
+    end
     local counters = {}
     local function add(cardInfo, kind, title, description, default, options, callback)
         local p = assert(cardInfo.Page, "Missing page")
@@ -2988,16 +3032,25 @@ end
             local ok, err = pcall(callback or function() end, value)
             if not ok then
                 if kind ~= "button" then set(key, last, false) end
+                local control=controls[key]
+                if control then
+                    control.Subtitle.Text='Could not enable: '..tostring(err):sub(1,120)
+                    control.Subtitle.TextColor3=Color3.fromRGB(238,155,145)
+                    if layout then layout()end
+                end
                 p.Status.Text = "Error: " .. tostring(err):sub(1, 190)
                 warn("Sweet Exploit · " .. key .. ": " .. tostring(err))
                 return false, err
             end
+            if controls[key]then controls[key].Subtitle.Text=description~=''and description or cardInfo.Title;controls[key].Subtitle.TextColor3=C.Muted end
             last = value
             return true
         end
         options.OnChanged = invoke
         if kind == "button" then options.OnActivate = function() invoke() end end
         local c = control(p, kind, key, title, description ~= "" and description or cardInfo.Title, options)
+        if pageId=='Visual'and kind=='toggle'then c.Wide=true end
+        if (pageId=='Support'or pageId=='FFlags')and(kind=='input'or kind=='button')then c.Wide=true end
         local proxy = {Instance = c.Root, Key = key}
         proxy.get = function() return state[key] end
         proxy.set = function(value, runCallback)
@@ -5549,6 +5602,7 @@ return dictionaries
         assert(value=='English'or dictionaries[value],'Unsupported language')
         language=value;engineEnv.CurrentLanguage=value;engineGlobals.DarlingX.CurrentLanguage=value
         for object,original in pairs(textRecords)do if object.Parent then setText(object,original)end end
+        if layout then layout()end
     end
     local restoring=true
     local saveGeneration=0
