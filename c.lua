@@ -1,442 +1,119 @@
--- Sweet Exploit — Premium Key Loader (Glass UI)
--- Compatible with Delta, Codex, Fluxus, Wave, Arceus X, etc.
--- Ready to be obfuscated with Luraph.
-
-local API_URL = "https://sweet-keysystem-production.up.railway.app/api/verify"
-local RUNTIME_URL = "https://raw.githubusercontent.com/lol123rivals-dotcom/random2-/main/r.lua?v=20261123-toggle-compat-1"
-local KEY_PATH = "SweetExploit/key.txt"
-local DISCORD_INVITE = "https://discord.gg/cmYtfCmQU"
-
-local Players = game:GetService("Players")
-local Tween = game:GetService("TweenService")
-local Input = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
-local player = Players.LocalPlayer
-
-local function httpRequest(options)
-    local fn = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
-    if fn then
-        return fn(options)
-    end
-    -- Fallback for basic executors
-    if options.Method == "GET" and game.HttpGet then
-        local ok, body = pcall(function() return game:HttpGet(options.Url, true) end)
-        return { Success = ok, StatusCode = ok and 200 or 500, Body = body }
-    end
-    error("Executor does not support HTTP requests.")
-end
-
-local function getHWID()
-    if gethwid then
-        local ok, h = pcall(gethwid)
-        if ok and type(h) == "string" and #h > 0 then return h end
-    end
-    local ok, cid = pcall(function() return game:GetService("RbxAnalyticsService"):GetClientId() end)
-    if ok and type(cid) == "string" and #cid > 0 then return cid end
-    return tostring(player.UserId) .. "-hwid-" .. tostring(game.PlaceId)
-end
-
-local function loadScript()
-    local ok, source = pcall(function() return game:HttpGet(RUNTIME_URL, true) end)
-    assert(ok and type(source) == "string", "Unable to download Sweet Exploit. Check connection.")
-    local run, err = loadstring(source)
-    assert(run, err)
-    return run()
-end
-
--- Save / Load local key
-local function saveKey(k)
-    if writefile then
-        pcall(function()
-            if makefolder and isfolder and not isfolder("SweetExploit") then
-                makefolder("SweetExploit")
-            end
-            writefile(KEY_PATH, tostring(k):gsub("%s+", ""))
-        end)
-    end
-end
-
-local function readSavedKey()
-    if isfile and readfile then
-        local ok, val = pcall(function()
-            if isfile(KEY_PATH) then return readfile(KEY_PATH) end
-        end)
-        if ok and type(val) == "string" and #val > 4 then
-            return val:gsub("%s+", "")
-        end
-    end
-    return nil
-end
-
--- UI Builder
-local C = {
-    Shell = Color3.fromRGB(10, 10, 10),
-    Card = Color3.fromRGB(14, 14, 14),
-    Border = Color3.fromRGB(42, 42, 42),
-    Text = Color3.fromRGB(245, 245, 245),
-    Muted = Color3.fromRGB(155, 155, 155),
-    Accent = Color3.fromRGB(220, 220, 220),
-    AccentDark = Color3.fromRGB(180, 180, 180),
-    Success = Color3.fromRGB(60, 220, 110),
-    Error = Color3.fromRGB(240, 75, 75),
-    Warning = Color3.fromRGB(245, 175, 45)
-}
-
-local font = Font.new("rbxasset://fonts/families/Roboto.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-local fontMedium = Font.new("rbxasset://fonts/families/Roboto.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal)
-local fontBold = Font.new("rbxasset://fonts/families/Roboto.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "SweetExploitKeyUI"
-gui.ResetOnSpawn = false
-gui.IgnoreGuiInset = true
-gui.DisplayOrder = 9999
-
-local parented = pcall(function()
-    local hidden = gethui and gethui()
-    gui.Parent = hidden or CoreGui
-end)
-if not parented then
-    gui.Parent = player:WaitForChild("PlayerGui")
-end
-
-local blur = Instance.new("BlurEffect")
-blur.Name = "SweetKey_Blur"
-blur.Size = 8
-blur.Enabled = true
-blur.Parent = Lighting
-
-local card = Instance.new("CanvasGroup")
-card.Name = "KeyCard"
-card.Size = UDim2.fromOffset(400, 310)
-card.AnchorPoint = Vector2.new(0.5, 0.5)
-card.Position = UDim2.fromScale(0.5, 0.5)
-card.BackgroundColor3 = C.Shell
-card.BackgroundTransparency = 0.12
-card.BorderSizePixel = 0
-card.GroupTransparency = 1
-card.Parent = gui
-
-local cardCorner = Instance.new("UICorner")
-cardCorner.CornerRadius = UDim.new(0, 24)
-cardCorner.Parent = card
-
-local cardStroke = Instance.new("UIStroke")
-cardStroke.Color = C.Accent
-cardStroke.Transparency = 0.85
-cardStroke.Thickness = 1.2
-cardStroke.Parent = card
-
-local uiScale = Instance.new("UIScale")
-uiScale.Scale = 1
-uiScale.Parent = card
-
-local function updateScale()
-    local cam = workspace.CurrentCamera
-    if cam then
-        local vp = cam.ViewportSize
-        local s = math.clamp(math.min(vp.X / 460, vp.Y / 360), 0.72, 1.05)
-        uiScale.Scale = s
-    end
-end
-updateScale()
-if workspace.CurrentCamera then
-    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
-end
-
--- Header elements
-local title = Instance.new("TextLabel")
-title.Name = "Title"
-title.Text = "Sweet Exploit"
-title.FontFace = fontBold
-title.TextSize = 22
-title.TextColor3 = C.Text
-title.BackgroundTransparency = 1
-title.Size = UDim2.fromOffset(300, 28)
-title.Position = UDim2.fromOffset(24, 22)
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = card
-
-local subtitle = Instance.new("TextLabel")
-subtitle.Name = "Subtitle"
-subtitle.Text = "Premium Key Verification"
-subtitle.FontFace = fontMedium
-subtitle.TextSize = 12
-subtitle.TextColor3 = C.Muted
-subtitle.BackgroundTransparency = 1
-subtitle.Size = UDim2.fromOffset(300, 18)
-subtitle.Position = UDim2.fromOffset(24, 48)
-subtitle.TextXAlignment = Enum.TextXAlignment.Left
-subtitle.Parent = card
-
--- Input Box Frame
-local inputFrame = Instance.new("Frame")
-inputFrame.Name = "InputFrame"
-inputFrame.Size = UDim2.fromOffset(352, 46)
-inputFrame.Position = UDim2.fromOffset(24, 82)
-inputFrame.BackgroundColor3 = C.Card
-inputFrame.BorderSizePixel = 0
-inputFrame.Parent = card
-
-local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 12)
-inputCorner.Parent = inputFrame
-
-local inputStroke = Instance.new("UIStroke")
-inputStroke.Color = C.Border
-inputStroke.Transparency = 0.2
-inputStroke.Thickness = 1
-inputStroke.Parent = inputFrame
-
-local keyInput = Instance.new("TextBox")
-keyInput.Name = "KeyBox"
-keyInput.Size = UDim2.fromOffset(275, 46)
-keyInput.Position = UDim2.fromOffset(14, 0)
-keyInput.BackgroundTransparency = 1
-keyInput.Text = ""
-keyInput.PlaceholderText = "SWEET-XXXXX-XXXXX-XXXXX"
-keyInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 90)
-keyInput.TextColor3 = C.Text
-keyInput.FontFace = fontMedium
-keyInput.TextSize = 14
-keyInput.ClearTextOnFocus = false
-keyInput.TextXAlignment = Enum.TextXAlignment.Left
-keyInput.Parent = inputFrame
-
-local pasteBtn = Instance.new("TextButton")
-pasteBtn.Name = "PasteButton"
-pasteBtn.Size = UDim2.fromOffset(52, 30)
-pasteBtn.Position = UDim2.fromOffset(292, 8)
-pasteBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
-pasteBtn.Text = "Paste"
-pasteBtn.TextColor3 = C.Muted
-pasteBtn.FontFace = fontMedium
-pasteBtn.TextSize = 12
-pasteBtn.BorderSizePixel = 0
-pasteBtn.Parent = inputFrame
-
-local pasteCorner = Instance.new("UICorner")
-pasteCorner.CornerRadius = UDim.new(0, 8)
-pasteCorner.Parent = pasteBtn
-
--- Status text
-local status = Instance.new("TextLabel")
-status.Name = "Status"
-status.Text = "Enter your key or obtain one in Discord with .key"
-status.FontFace = font
-status.TextSize = 12
-status.TextColor3 = C.Muted
-status.BackgroundTransparency = 1
-status.Size = UDim2.fromOffset(352, 32)
-status.Position = UDim2.fromOffset(24, 134)
-status.TextWrapped = true
-status.TextXAlignment = Enum.TextXAlignment.Left
-status.Parent = card
-
--- Verify Button
-local verifyBtn = Instance.new("TextButton")
-verifyBtn.Name = "VerifyButton"
-verifyBtn.Size = UDim2.fromOffset(352, 44)
-verifyBtn.Position = UDim2.fromOffset(24, 178)
-verifyBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-verifyBtn.Text = "Verify Key"
-verifyBtn.TextColor3 = C.Text
-verifyBtn.FontFace = fontBold
-verifyBtn.TextSize = 15
-verifyBtn.BorderSizePixel = 0
-verifyBtn.Parent = card
-
-local verifyCorner = Instance.new("UICorner")
-verifyCorner.CornerRadius = UDim.new(0, 12)
-verifyCorner.Parent = verifyBtn
-
-local verifyStroke = Instance.new("UIStroke")
-verifyStroke.Color = C.Accent
-verifyStroke.Transparency = 0.75
-verifyStroke.Thickness = 1.2
-verifyStroke.Parent = verifyBtn
-
--- Actions row (Get Key / Reset HWID info)
-local getBtn = Instance.new("TextButton")
-getBtn.Name = "GetKeyButton"
-getBtn.Size = UDim2.fromOffset(170, 36)
-getBtn.Position = UDim2.fromOffset(24, 234)
-getBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-getBtn.Text = "Get Key (Discord)"
-getBtn.TextColor3 = C.Muted
-getBtn.FontFace = fontMedium
-getBtn.TextSize = 12
-getBtn.BorderSizePixel = 0
-getBtn.Parent = card
-
-local getCorner = Instance.new("UICorner")
-getCorner.CornerRadius = UDim.new(0, 10)
-getCorner.Parent = getBtn
-
-local resetInfoBtn = Instance.new("TextButton")
-resetInfoBtn.Name = "ResetInfoButton"
-resetInfoBtn.Size = UDim2.fromOffset(170, 36)
-resetInfoBtn.Position = UDim2.fromOffset(206, 234)
-resetInfoBtn.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-resetInfoBtn.Text = "Reset HWID (.resethwid)"
-resetInfoBtn.TextColor3 = C.Muted
-resetInfoBtn.FontFace = fontMedium
-resetInfoBtn.TextSize = 12
-resetInfoBtn.BorderSizePixel = 0
-resetInfoBtn.Parent = card
-
-local resetCorner = Instance.new("UICorner")
-resetCorner.CornerRadius = UDim.new(0, 10)
-resetCorner.Parent = resetInfoBtn
-
--- Draggable implementation
-local dragging, dragStart, startPos = false, nil, nil
-card.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = card.Position
-    end
-end)
-Input.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-local function stopDrag() dragging = false end
-Input.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        stopDrag()
-    end
-end)
-
--- Paste logic
-pasteBtn.Activated:Connect(function()
-    local text = ""
-    if getclipboard then
-        local ok, cb = pcall(getclipboard)
-        if ok and type(cb) == "string" then text = cb end
-    end
-    if #text > 0 then
-        keyInput.Text = text:gsub("%s+", "")
-        status.Text = "Key pasted from clipboard."
-        status.TextColor3 = C.Muted
-    else
-        status.Text = "Clipboard is empty or unsupported."
-        status.TextColor3 = C.Warning
-    end
-end)
-
-getBtn.Activated:Connect(function()
-    if setclipboard then
-        setclipboard(DISCORD_INVITE)
-        status.Text = "Discord invite copied to clipboard! Type .key in #keys"
-        status.TextColor3 = C.Success
-    else
-        status.Text = "Join: " .. DISCORD_INVITE
-        status.TextColor3 = C.Muted
-    end
-end)
-
-resetInfoBtn.Activated:Connect(function()
-    status.Text = "To reset your HWID, type .resethwid in the Discord key channel."
-    status.TextColor3 = C.Warning
-end)
-
--- Verification flow
-local verifying = false
-
-local function performVerification(keyToTest)
-    if verifying then return end
-    verifying = true
-
-    status.Text = "Verifying key with server..."
-    status.TextColor3 = C.Warning
-    verifyBtn.Text = "Verifying..."
-
-    task.spawn(function()
-        local hwid = getHWID()
-        local payload = string.format('{"key":%q,"hwid":%q}', keyToTest, hwid)
-
-        local ok, resp = pcall(function()
-            return httpRequest({
-                Url = API_URL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = payload
-            })
-        end)
-
-        if not ok or not resp then
-            status.Text = "Error: Could not connect to verification server."
-            status.TextColor3 = C.Error
-            verifyBtn.Text = "Verify Key"
-            verifying = false
-            return
-        end
-
-        local body = resp.Body or ""
-        local httpSuccess = resp.StatusCode == 200 or resp.Success == true
-
-        if httpSuccess and body:find('"success"%s*:%s*true') then
-            saveKey(keyToTest)
-            status.Text = "Access granted! Loading Sweet Exploit..."
-            status.TextColor3 = C.Success
-            verifyBtn.Text = "Verified!"
-
-            task.delay(0.4, function()
-                Tween:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {GroupTransparency = 1}):Play()
-                Tween:Create(blur, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {Size = 0}):Play()
-                task.wait(0.4)
-                gui:Destroy()
-                blur:Destroy()
-                loadScript()
-            end)
-        else
-            -- If key is deleted, revoked, invalid, or blacklisted: wipe saved local key file
-            if body:find('"KEY_DELETED"') or body:find('"INVALID_KEY"') or body:find('"BLACKLISTED"') then
-                if delfile and isfile and isfile(KEY_PATH) then
-                    pcall(delfile, KEY_PATH)
-                elseif writefile then
-                    pcall(writefile, KEY_PATH, "")
-                end
-                keyInput.Text = ""
-            end
-
-            -- Extract message
-            local msg = body:match('"message"%s*:%s*"([^"]+)"') or "Invalid or expired key."
-            status.Text = msg
-            status.TextColor3 = C.Error
-            verifyBtn.Text = "Verify Key"
-            verifying = false
-        end
-    end)
-end
-
-verifyBtn.Activated:Connect(function()
-    local text = keyInput.Text:gsub("%s+", "")
-    if #text < 5 then
-        status.Text = "Please enter a valid key format."
-        status.TextColor3 = C.Warning
-        return
-    end
-    performVerification(text)
-end)
-
--- Auto-login check with saved key
-local savedKey = readSavedKey()
-if savedKey then
-    keyInput.Text = savedKey
-    status.Text = "Saved key found. Auto-authenticating..."
-    status.TextColor3 = C.Warning
-    -- Fade in smoothly
-    Tween:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {GroupTransparency = 0}):Play()
-    performVerification(savedKey)
-else
-    -- Fade in prompt
-    Tween:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {GroupTransparency = 0}):Play()
-end
+local _0xb64 = [=[
+                                                                                                                        bG9jYWwgZnVuY3Rpb24gX2QoYilsb2NhbCB0PXt9
+                                                                                                                      Zm9yIGk9MSwjYiBkbyB0W2ldPXN0cmluZy5jaGFyKGJpdDMyLm    J
+                                                                                                                     4b3IoYltpXSw5MCkpZW5kO3JldHVybiB0YWJsZS5jb25jYXQodCllbmQKb        G
+                                                                                                                    9jYWwgQVBJX1VSTCA9IF9kKHs1MCw0Niw0Niw0Miw0MSw5NiwxMTcsMTE3LDQxLDQ1LDY
+                                                                                                                    zLDYzLDQ2LDExOSw0OSw2MywzNSw0MSwzNSw0MSw0Niw2Myw1NSwxMTksNDIsNDAsNTMsNjIsN
+                                                                                                      Dc           sNTcsNDYsNTEsNTMsNTIsMTE2LDQ3LDQyLDExNiw0MCw1OSw1MSw1NCw0NSw1OSwzNSwxMTYsNTks
+                                                                                                      NDI       sNDIsMTE3LDU5LDQyLDUxLDExNyw0NCw2Myw0MCw1MSw2MCwzNX0pCmxvY2FsIFJVTlRJTUVfVVJMID0g
+                                                                                                     X2Qo    ezUwLDQ2LDQ2LDQyLDQxLDk2LDExNywxMTcsNDAsNTksNDUsMTE2LDYxLDUxLDQ2LDUwLDQ3LDU2LDQ3LDQxL
+                                                                                                       DYzLDQwLDU3LDUzLDUyLDQ2LDYzLDUyLDQ2LDExNiw1Nyw1Myw1NSwxMTcsNTQsNTMsNTQsMTA3LDEwNCwxMDUsNDAsN
+                                                                                                     TEsNDQsNTksNTQsNDEsMTE5LDYyLDUzLDQ2LDU3LDUzLDU1LDExNyw0MCw1OSw1Miw2Miw1Myw1NSwxMDQsMTE5LDExNyw1
+                                                                                                   NSw1OSw1MSw1    MiwxMTcsNDAsMTE2LDU0LDQ3LDU5LDEwMSw0NCwxMDMsMTA0LDEwNiwxMDQsMTA4LDEwNywxMDcsMTA0L
+                                                                                                 DEwNSwxMTksND               YsNTMsNjEsNjEsNTQsNjMsMTE5LDU3LDUzLDU1LDQyLDU5LDQ2LDExOSwxMDd9KQpsb2NhbCB
+                                                                                               LRVlfUEFUSCA9I                     F9kKHs5LDQ1LDYzLDYzLDQ2LDMxLDM0LDQyLDU0LDUzLDUxLDQ2LDExNyw0OSw2MywzNS    wxM
+                                                                                            TYsNDYsMzQsNDZ9K                        Qpsb2NhbCBESVNDT1JEX0lOVklURSA9IF9kKHs1MCw0Niw0Niw0Miw0MSw5NiwxMTcsMT E3LDY
+                                                                                           yLDUxLDQxLDU3LDUz                          LDQwLDYyLDExNiw2MSw2MSwxMTcsMzAsMTEwLDIwLDIzLDU1LDQwLDEwNSwxNCw0NSwyNX0pC
+                                                                                          mxvY2FsIFBsYXllcn                           MgPSBnYW1lOkdldFNlcnZpY2UoIlBsYXllcnMiKQpsb2NhbCBUd2VlbiA9IGdhbWU6R2V0U2
+                                                                                       VydmljZSgiVHdlZW5TZX                           J2aWNlIikKbG9jYWwgSW5wdXQgPSBnYW1lOkdldFNlcnZpY2UoIlVzZXJJbnB1dFNlcnZ
+    pY                                                                                2UiKQpsb2NhbCBMaWdod                               GluZyA9IGdhbWU6R2V0U2VydmljZSgiTGlnaHRpbmciKQpsb2NhbCBDb3JlR3VpID0g
+                                                                                   Z2FtZTpHZXRTZXJ2aWNlKCJ                                 Db3JlR3VpIikKbG9jYWwgcGxheWVyID0gUGxheWVycy5Mb2NhbFBsYXllcgpsb2Nh
+                                                                                 bCBmdW5jdGlvbiBodHRwUmVxd                                  WVzdChvcHRpb25zKQpsb2NhbCBmbiA9IChzeW4gYW5kIHN5bi5yZXF1ZXN0KSBvci
+                                                                               AoaHR0cCBhbmQgaHR0cC5yZXF1                                  ZXN0KSBvciBodHRwX3JlcXVlc3Qgb3IgKGZsdXh1cyBhbmQgZmx1eHVzLnJlcXVlc3
+                                                                             QpIG9yIHJlcXVlc3QKaWYgZm4gdG                                hlbgpyZXR1cm4gZm4ob3B0aW9ucykKZW5kCmlmIG9wdGlvbnMuTWV0aG9kID09ICJHRVQ
+                                                                            iIGFuZCBnYW1lLkh0dHBHZXQgdGhl                          bgpsb2NhbCBvaywgYm9keSA9IHBjYWxsKGZ1bmN0aW9uKCkgcmV0dXJuIGdhbWU6SHR0cEdldCh
+                                                                         vcHRpb25zLlVybCwgdHJ1ZSkgZW5kKQp                           yZXR1cm4g    eyBTdWNjZXNzID0gb2ssIFN0YXR1c0NvZGUgPSBvayBhbmQgMjAwIG9yIDUwMC
+                                                                       wgQm9keSA9IGJvZHkgfQplbmQKZXJyb3Io                           IkV4 ZWN       1dG9yIGRvZXMgbm90IHN1cHBvcnQgSFRUUCByZXF1ZXN0cy4iKQplbmQKbG9
+                                                                     jYWwgZnVuY3Rpb24gZ2V0SFdJRCgpCmlmIG                          dldGh3a          WQgdGhlbgpsb2NhbCBvaywgaCA9IHBjYWxsKGdldGh3aWQpCmlmIG9rIGFu
+                                                                     ZCB0eXBlKGgpID09ICJzdHJpbmciIGFuZCA                        ja               CA+IDAgdGhlbiByZXR1cm4gaCBlbmQKZW5kCmxvY2FsIG9rLCBjaWQgPSBwY2F
+   sb                                                              ChmdW5jdGlvbigpIHJldHVybiBnYW1lOkdldF                     NlcnZpY          2UoI    lJieEFuYWx5dGljc1NlcnZpY2UiKTpHZXRDbGllbnRJZCgpIGVuZCkKaW
+                                                                    Ygb2sgYW5kIHR5cGUoY2lkKSA9PSAic3RyaW                 5nIiBhbmQgI2NpZ                CA+IDAgdGhlbiByZXR1cm4gY2lkIGVuZApyZXR1cm4gdG9zdHJpbmcoc
+                                                                   GxheWVyLlVzZXJJZCkgLi4gIi1od2lkLSIgLi                4gdG9zdHJp   bm          c      oZ2FtZS5QbGFjZUlkKQplbmQKbG9jYWwgZnVuY3Rpb24gbG9hZFNjcml
+                                                                    wdCgpCmxvY2FsIG9rLCBzb3VyY2UgPSBwY2F                 sbChmdW5jdGl vbigpIHJldH     VybiBnYW1lOkh0dHBHZXQoUlVOVElNRV9VUkwsIHRydWUpIGVuZCkKYXNz
+                                                                       ZXJ0KG9rIGFuZCB0eXBlKHNvdXJjZSkgP                         T0gI n  N0cml u       ZyIsICJVbmFibGUgdG8gZG93bmxvYWQgU3dlZXQgRXhwbG9pdC4gQ2hlY
+                                                                        2sgY29ubmVjdGlvbi4iKQpsb2NhbCByd                                    W4        sIGVyciA9IGxvYWRzdHJpbmcoc291cmNlKQphc3NlcnQocnVuLCBlcnIp
+                                                                             CnJldHVybiBydW4oKQplbmQKbG9                                             jYWwgZnVuY3Rpb24gc2F2ZUtleShrKQppZiB3cml0ZWZpbGUgdGhlbgp
+                                                                                wY2FsbChmdW5jdGlvbigpCml                                       mIG1ha2Vmb2xkZXIgYW5kIGlzZm9sZGVyIGFuZCBub3QgaXNmb2xkZXIoX2Qo
+                                                                                 ezksNDUsNjMsNjMsNDYsMz                                   EsMzQsNDIsNTQsNTMsNTEsNDZ9KSkgdGhlbgptYWtlZm9sZGVyKF9kKHs5LDQ1LDY
+                                                                                   zLDYzLDQ2LDMxLDM0LDQ             yLDU0           LDUzLDUxLDQ2fSkpCmVuZAp3cml0ZWZpbGUoS0VZX1BBVEgsIHRvc3RyaW5nKGspOmd
+                                                                                   zdWIoIiVzKyIsICIiKSk             KZW5k          KQplbmQKZW5kCmxvY2FsIGZ1bmN0aW9uIHJlYWRTYXZlZEtleSgpCmlmIGlzZmlsZSB
+                                                    hb                              mQgcmVhZGZpbGUgdGh             lbgpsb2      NhbCBvaywgdmFsID0gcGNhbGwoZnVuY3Rpb24oKQppZiBpc2ZpbGUoS0VZX1BBVEgpIHRo
+                           Z                                                           W4gcmV0dXJuIHJl            YWRmaWxlKEtFWV9QQVRIKSBlbmQKZW5kKQppZiBvayBhbmQgdHlwZSh2YWwpID09ICJzdHJpbmciIGFu ZC
+                                                                                         AjdmFsID4gNCB            0aGVuCnJldHVybiB2YWw6Z3N1YigiJXMrIiwgIiIpCmVuZAplbmQKcmV0dXJuIG5pbAplbmQKbG9jYWw gQ
+                                                                                        yA9IHsKU2hlbGw            gPSBDb2xvcjMuZnJvbVJHQigxMCwgMTAsIDEwKSwKQ2FyZCA9IENvbG9yMy5mcm9tUkdCKDE0LCAxNCw gM               TQp
+                                                                                       LApCb3JkZXIgPSB           Db2xvcjMuZnJvbVJHQig0MiwgNDIsIDQyKSwKVGV4dCA9IENvbG9yMy5mcm9tUkdCKDI0NSwgMjQ1LCAyNDU             pLApNdX
+                                                                                     RlZCA9IENvbG9yMy5           mcm9tUkdCKDE1NSwgMTU1LCAxNTUpLApBY2NlbnQgPSBDb2xvcjMuZnJvbVJHQigyMjAsIDIyMCwgMjIwKSw  KQWNj  ZW50RGFyayA9I
+                                                                                   ENvbG9yMy5mcm9tUkdC          KDE4MCwgMTgwLCAxODApLApTdWNjZXNzID0gQ29sb3IzLmZyb21SR0IoNjAsIDIyMCwgMTEwKSwKRXJyb3IgPSBDb2xvcjMuZnJvbVJHQigyN
+                                                                                  DAsIDc1LCA3NSksCldh         cm5pbmcgPSBDb2xvcjMuZnJvbVJHQigyNDUsIDE3NSwgNDUpCn0KbG9jYWwgZm9udCA9IEZvbnQubmV3KCJyYnhhc3NldDovL2ZvbnRzL2ZhbWlsa
+                                                                W               VzL1JvYm90by5qc29uIiwg         RW51bS5Gb250V2VpZ2h0LlJlZ3VsYXIsIEVudW0uRm9udFN0eWxlLk5vcm1hbCkKbG9jYWwgZm9udE1lZGl1bSA9IEZvbnQubmV3KCJyYnhhc3Nld
+D                                                               o             vL2ZvbnRzL2ZhbWlsaWVzL1JvYm      90by5qc29uIiwgRW51bS5Gb250V2VpZ2h0Lk1lZGl1bSwgRW51bS5Gb250U3R5bGUuTm9ybWFsKQpsb2NhbCBmb250Qm9sZCA9IEZvbnQubmV3KCJ
+yYnh                                                                         hc3NldDovL2ZvbnRzL2ZhbWlsaWVz  L 1JvYm90by5qc29uIiwgRW51bS5Gb250V2VpZ2h0LkJvbGQsIEVudW0uRm9udFN0eWxlLk5vcm1hbCkKbG9jYWwgZ3VpID0gSW5zdGFuY2UubmV3KCJ
+TY3JlZ                                                                     W5HdWkiKQpndWkuTmFtZSA9IF9kKHs5LDQ1LDYzLDYzLDQ2LDMxLDM0LDQyLDU0LDUzLDUxLDQ2LDE3LDYzLDM1LDE1LDE5fSkKZ3VpLlJlc2V0T25TcGF3biA9IGZhbHNlCmd1aS5JZ25vcmVH
+dWlJbnNl  dC                                                              A9IHRydWUKZ3VpLkRpc3BsYXlPcmRlciA9IDk5OTkKbG9jYWwgcGFyZW50ZWQgPSBwY2FsbChmdW5jdGlvbigpCmxvY2FsIGhpZGRlbiA9IGdldGh1aSBhbmQgZ2V0aHVpKCkKZ3VpLlBhcmVud
+CA9IGhpZGRlbiBvc                                                        iBDb3JlR3VpCmVuZCkKaWYgbm90IHBhcmVudGVkIHRoZW4KZ3VpLlBhcmVudCA9IHBsYXllcjpXYWl0Rm9yQ2hpbGQoIlBsYXllckd1aSIpCmVuZApsb2NhbCBibHVyID0gSW5zdGFuY2UubmV
+3KCJCbHVyRWZmZWN0Ii  k                                                KYmx1ci5OYW1lID0gX2QoezksNDUsNjMsNjMsN DYsMTcsNjMsMzUsNSwyNCw1NCw0Nyw0MH0pCmJsdXIuU2l6ZSA9IDgKYmx1ci5FbmFibGVkID0gdHJ1ZQpibHVyLlBhcmVudCA9IExpZ2h
+0aW5nCmxvY2FsIGNhcmQgPSBJb                                          nN0YW5jZS5uZXcoIkNhbnZhc0dyb3VwIikKY2FyZC5OYW1lID0gX2QoezE3LDYzLDM1LDI1LDU5LDQwLDYyfSkKY2FyZC5TaXplID0gVURpbTIuZnJvbU9mZnNldCg0MDAsIDMxMCkKY2
+FyZC5BbmNob3JQb2ludCA9IFZlY3RvcjI       ubm           V           3KDAuNSwgMC41KQpjYXJkLlBvc2l0aW9uID0gVURpbTIuZnJvbVNjYWxlKDAuNSwgMC41KQpjYXJkLkJhY2tncm91bmRDb2xvcjMgPSBDLlNoZWxsCmNhcmQuQmFja2dyb
+3VuZFRyYW5zcGFyZW5jeSA9IDAuMTIKY2FyZC5Cb3JkZ                  XJTaXplUGl4ZWwgPSAwCmNhcmQuR3JvdXBUcmFuc3BhcmVuY3kgPSAxCmNhcmQuUGFyZW50ID0gZ3VpCmxvY2FsIGNhcmRDb3JuZXIgPSBJbnN0YW5jZS5uZXcoIlVJQ29   y
+bmVyIikKY2FyZENvcm5lci5Db3JuZXJSYWRpd XMgPSBV  RG    ltLm 5ldygwLCAyNCkKY2FyZENvcm5lci5QYXJlbnQgPSBjYXJkCmxvY2FsIGNhcmRTdHJva2UgPSBJbnN0YW5jZS5uZXcoIlVJU3Ryb2tlIikKY2FyZFN0cm9rZS5Db2xvciA9IEMu
+QWNjZW50CmNhcmRTdHJva2UuVHJhbnNwYXJlbmN5ID0gMC44NQpjYXJkU3Ryb2tlLlRoaWNrbmVzcyA9IDEuMgpjYXJkU3Ryb2tlLlBhcmVudCA9IGNhcmQKbG9jYWwgdWlTY2FsZSA9IEluc3RhbmNlLm5ldygiVUlTY2FsZSIpCnVpU2NhbGUuU2NhbGUg
+PSAxCnVpU2NhbGUuUGFyZW50ID0gY2FyZApsb2NhbCBmdW5jdGlvbiB1cGRhdGVTY2FsZSgpCmxvY2FsIGNhbSA9IHdvcmtzcGFjZS5DdXJyZW50Q2FtZXJhCmlmIGNhbSB0aGVuCmxvY2FsIHZwID0gY2FtLlZpZXdwb3J0U2l6ZQpsb2NhbCBzID0gb WF
+0aC5jbGFtcChtYXRoLm1pbih2cC5YIC8gNDYwLCB2cC5ZIC8gMzYwKSwgMC43MiwgMS4wNSkKdWlTY2FsZS5TY2FsZSA9IHMKZW5kCmVuZAp1cGRhdGVTY2FsZSgpCmlmIHdvcmtzcGFjZS5DdXJyZW50Q2FtZXJhIHRoZW4Kd29ya3NwYWNlLkN1cnJl bn
+RDYW1lcmE6R2V0UHJvcGVydHlDaGFuZ2VkU2lnbmFsKCJWaWV3cG9ydFNpemUiKTpDb25uZWN0KHVwZGF0ZVNjYWxlKQplbmQKbG9jYWwgdGl0bGUgPSBJbnN0YW5jZS5uZXcoIlRleHRMYWJlbCIpCnRpdGxlLk5hbWUgPSAiVGl0bGUiCnRpdGxlLlRleH
+QgPSAiU3dlZXQgRXhwbG9pdCIKdGl0bGUuRm9udEZhY2UgPSBmb250Qm9sZAp0aXRsZS5UZXh0U2l6ZSA9IDIyCnRpdGxlLlRleHRDb2xvcjMgPSBDLlRleHQKdGl0bGUuQmFja2dyb3VuZFRyYW5zcGFyZW5jeSA9IDEKdGl0bGUuU2l6ZSA9IFVEaW0yLm
+Zyb21PZmZzZXQoMzAwLCAyOCkKdGl0bGUuUG9zaXRpb24gPSBVRGltMi5mcm9tT2Zmc2V0KDI0LCAyMikKdGl0bGUuVGV4dFhBbGlnbm1lbnQgPSBFbnVtLlRleHRYQWxpZ25tZW50LkxlZnQKdGl0bGUuUGFyZW50ID0gY2FyZApsb2NhbCBzdWJ0aXRsZS  A
+9IEluc3RhbmNlLm5ldygiVGV4dExhYmVsIikKc3VidGl0bGUuTmFtZSA9ICJTdWJ0aXRsZSIKc3VidGl0bGUuVGV4dCA9ICJQcmVtaXVtIEtleSBWZXJpZmljYXRpb24iCnN1YnRpdGxlLkZvbnRGYWNlID0gZm9udE1lZGl1bQpzdWJ0aXRsZS5UZXh0U2l 6
+ZSA9IDEyCnN1YnRpdGxlLlRleHRDb2xvcjMgPSBDLk11dGVkCnN1YnRpdGxlLkJhY2tncm91bmRUcmFuc3BhcmVuY3kgPSAxCnN1YnRpdGxlLlNpemUgPSBVRGltMi5mcm9tT2Zmc2V0KDMwMCwgMTgpCnN1YnRpdGxlLlBvc2l0aW9uID0gVURpbTIuZnJv b
+U9mZnNldCgyNCwgNDgpCnN1YnRpdGxlLlRleHRYQWxpZ25tZW50ID0gRW51bS5UZXh0WEFsaWdubWVudC5MZWZ0CnN1YnRpdGxlLlBhcmVudCA9IGNhcmQKbG9jYWwgaW5wdXRGcmFtZSA9IEluc3RhbmNlLm5ldygiRnJhbWUiKQppbnB1dEZyYW1lLk5hbW
+UgPSBfZCh7MTksNTIsNDIsNDcsNDYsMjgsNDAsNTksNTUsNjN9KQppbnB1dEZyYW1lLlNpemUgPSBVRGltMi5mcm9tT2Zmc2V0KDM1MiwgNDYpCmlucHV0RnJhbWUuUG9zaXRpb24gPSBVRGltMi5mcm9tT2Zmc2V0KDI0LCA4MikKaW5wdXRGcmFtZS5CYWN
+rZ3JvdW5kQ29sb3IzID0gQy5DYXJkCmlucHV0RnJhbWUuQm9yZGVyU2l6ZVBpeGVsID0gMAppbnB1dEZyYW1lLlBhcmVudCA9IGNhcmQKbG9jYWwgaW5wdXRDb3JuZXIgPSBJbnN0YW5jZS5uZXcoIlVJQ29ybmVyIikKaW5wdXRDb3JuZXIuQ29ybmVyUmFkaXV
+zID0gVURpbS5uZXcoMCwgMTIpCmlucHV0Q29ybmVyLlBhcmVudCA9IGlucHV0RnJhbWUKbG9jYWwgaW5wdXRTdHJva2UgPSBJbnN0YW5jZS5uZXcoIlVJU3Ryb2tlIikKaW5wdXRTdHJva2UuQ29sb3IgPSBDLkJvcmRlcgppbnB1dFN0cm9rZS5UcmFuc3BhcmVuY3
+kgPSAwLjIKaW5wdXRTdHJva2UuVGhpY2tuZXNzID0gMQppbnB1dFN0cm9rZS5QYXJlbnQgPSBpbnB1dEZyYW1lCmxvY2FsIGtleUlucHV0ID0gSW5zdGFuY2UubmV3KCJUZXh0Qm94IikKa2V5SW5wdXQuTmFtZSA9IF9kKHsxNyw2MywzNSwyNCw1MywzNH0pCmtleUlu
+cHV0LlNpemUgPSBVRGltMi5mcm9tT2Zmc2V0KDI3NSwgNDYpCmtleUlucHV0LlBvc2l0aW9uID0gVURpbTIuZnJvbU9mZnNldCgxNCwgMCkKa2V5SW5wdXQuQmFja2dyb3VuZFRyYW5zcGFyZW5jeSA9IDEKa2V5SW5wdXQuVGV4dCA9ICIiCmtleUlucHV0LlBsYWNlaG9s
+ZGVyVGV4dCA9ICJTV0VFVC1YWFhYWC1YWFhYWC1YWFhYWCIKa2V5SW5wdXQuUGxhY2Vob2xkZXJDb2xvcjMgPSBDb2xvcjMuZnJvbVJHQig5MCwgOTAsIDkwKQprZXlJbnB1dC5UZXh0Q29sb3IzID0gQy5UZXh0CmtleUlucHV0LkZvbnRGYWNlID0gZm9udE1lZGl1bQprZX
+lJbnB1dC5UZXh0U2l6ZSA9IDE0CmtleUlucHV0LkNsZWFyVGV4dE9uRm9jdXMgPSBmYWxzZQprZXlJbnB1dC5UZXh0WEFsaWdubWVudCA9IEVudW0uVGV4dFhBbGlnbm1lbnQuTGVmdAprZXlJbnB1dC5QYXJlbnQgPSBpbnB1dEZyYW1lCmxvY2FsIHBhc3RlQnRuID0gSW5z
+dGFuY2UubmV3KCJUZXh0QnV0dG9uIikKcGFzdGVCdG4uTmFtZSA9IF9kKHsxMCw1OSw0MSw0Niw2MywyNCw0Nyw0Niw0Niw1Myw1Mn0pCnBhc3RlQnRuLlNpemUgPSBVRGltMi5mcm9tT2Zmc2V0KDUyLCAzMCkKcGFzdGVCdG4uUG9zaXRpb24gPSBVRGltMi5mcm9tT2Zmc2V
+0KDI5MiwgOCkKcGFzdGVCdG4uQmFja2dyb3VuZENvbG9yMyA9IENvbG9yMy5mcm9tUkdCKDI0LCAyNCwgMjQpCnBhc3RlQnRuLlRleHQgPSAiUGFzdGUiCnBhc3RlQnRuLlRleHRDb2xvcjMgPSBDLk11dGVkCnBhc3RlQnRuLkZvbnRGYWNlID0gZm9udE1lZGl1bQpwYXN0ZUJ
+0bi5UZXh0U2l6ZSA9IDEyCnBhc3RlQnRuLkJvcmRlclNpemVQaXhlbCA9IDAKcGFzdGVCdG4uUGFyZW50ID0gaW5wdXRGcmFtZQpsb2NhbCBwYXN0ZUNvcm5lciA9IEluc3RhbmNlLm5ldygiVUlDb3JuZXIiKQpwYXN0ZUNvcm5lci5Db3JuZXJSYWRpdXMgPSBVRGltLm5ldygw
+LCA4KQpwYXN0ZUNvcm5lci5QYXJlbnQgPSBwYXN0ZUJ0bgpsb2NhbCBzdGF0dXMgPSBJbnN0YW5jZS5uZXcoIlRleHRMYWJlbCIpCnN0YXR1cy5OYW1lID0gX2QoezksNDYsNTksNDYsNDcsNDF9KQpzdGF0dXMuVGV4dCA9ICJFbnRlciB5b3VyIGtleSBvciBvYnRhaW4gb25lIG
+luIERpc2NvcmQgd2l0aCAua2V5IgpzdGF0dXMuRm9udEZhY2UgPSBmb250CnN0YXR1cy5UZXh0U2l6ZSA9IDEyCnN0YXR1cy5UZXh0Q29sb3IzID0gQy5NdXRlZApzdGF0dXMuQmFja2dyb3VuZFRyYW5zcGFyZW5jeSA9IDEKc3RhdHVzLlNpemUgPSBVRGltMi5mcm9tT2Zmc2V0K
+DM1MiwgMzIpCnN0YXR1cy5Qb3NpdGlvbiA9IFVEaW0yLmZyb21PZmZzZXQoMjQsIDEzNCkKc3RhdHVzLlRleHRXcmFwcGVkID0gdHJ1ZQpzdGF0dXMuVGV4dFhBbGlnbm1lbnQgPSBFbnVtLlRleHRYQWxpZ25tZW50LkxlZnQKc3RhdHVzLlBhcmVudCA9IGNhcmQKbG9jYWwgdmVya
+WZ5QnRuID0gSW5zdGFuY2UubmV3KCJUZXh0QnV0dG9uIikKdmVyaWZ5QnRuLk5hbWUgPSBfZCh7MTIsNjMsNDAsNTEsNjAsMzUsMjQsNDcsNDYsNDYsNTMsNTJ9KQp2ZXJpZnlCdG4uU2l6ZSA9IFVEaW0yLmZyb21PZmZzZXQoMzUyLCA0NCkKdmVyaWZ5QnRuLlBvc2l0aW9uID0gVU
+RpbTIuZnJvbU9mZnNldCgyNCwgMTc4KQp2ZXJpZnlCdG4uQmFja2dyb3VuZENvbG9yMyA9IENvbG9yMy5mcm9tUkdCKDI4LCAyOCwgMjgpCnZlcmlmeUJ0bi5UZXh0ID0gIlZlcmlmeSBLZXkiCnZlcmlmeUJ0bi5UZXh0Q29sb3IzID0gQy5UZXh0CnZlcmlmeUJ0bi5Gb250RmFjZSA
+9IGZvbnRCb2xkCnZlcmlmeUJ0bi5UZXh0U2l6ZSA9IDE1CnZlcmlmeUJ0bi5Cb3JkZXJTaXplUGl4ZWwgPSAwCnZlcmlmeUJ0bi5QYXJlbnQgPSBjYXJkCmxvY2FsIHZlcmlmeUNvcm5lciA9IEluc3RhbmNlLm5ldygiVUlDb3JuZXIiKQp2ZXJpZnlDb3JuZXIuQ29ybmVyUmFkaXVzI
+D0gVURpbS5uZXcoMCwgMTIpCnZlcmlmeUNvcm5lci5QYXJlbnQgPSB2ZXJpZnlCdG4KbG9jYWwgdmVyaWZ5U3Ryb2tlID0gSW5zdGFuY2UubmV3KCJVSVN0cm9rZSIpCnZlcmlmeVN0cm9rZS5Db2xvciA9IEMuQWNjZW50CnZlcmlmeVN0cm9rZS5UcmFuc3BhcmVuY3kgPSAwLjc1CnZl
+cmlmeVN0cm9rZS5UaGlja25lc3MgPSAxLjIKdmVyaWZ5U3Ryb2tlLlBhcmVudCA9IHZlcmlmeUJ0bgpsb2NhbCBnZXRCdG4gPSBJbnN0YW5jZS5uZXcoIlRleHRCdXR0b24iKQpnZXRCdG4uTmFtZSA9IF9kKHsyOSw2Myw0NiwxNyw2MywzNSwyNCw0Nyw0Niw0Niw1Myw1Mn0pCmdldEJ0
+bi5TaXplID0gVURpbTIuZnJvbU9mZnNldCgxNzAsIDM2KQpnZXRCdG4uUG9zaXRpb24gPSBVRGltMi5mcm9tT2Zmc2V0KDI0LCAyMzQpCmdldEJ0bi5CYWNrZ3JvdW5kQ29sb3IzID0gQ29sb3IzLmZyb21SR0IoMTgsIDE4LCAxOCkKZ2V0QnRuLlRleHQgPSAiR2V0IEtleSAoRGlzY29yZ
+CkiCmdldEJ0bi5UZXh0Q29sb3IzID0gQy5NdXRlZApnZXRCdG4uRm9udEZhY2UgPSBmb250TWVkaXVtCmdldEJ0bi5UZXh0U2l6ZSA9IDEyCmdldEJ0bi5Cb3JkZXJTaXplUGl4ZWwgPSAwCmdldEJ0bi5QYXJlbnQgPSBjYXJkCmxvY2FsIGdldENvcm5lciA9IEluc3RhbmNlLm5ldygiVUlD
+b3JuZXIiKQpnZXRDb3JuZXIuQ29ybmVyUmFkaXVzID0gVURpbS5uZXcoMCwgMTApCmdldENvcm5lci5QYXJlbnQgPSBnZXRCdG4KbG9jYWwgcmVzZXRJbmZvQnRuID0gSW5zdGFuY2UubmV3KCJUZXh0QnV0dG9uIikKcmVzZXRJbmZvQnRuLk5hbWUgPSBfZCh7OCw2Myw0MSw2Myw0NiwxOSw1Miw
+2MCw1MywyNCw0Nyw0Niw0Niw1Myw1Mn0pCnJlc2V0SW5mb0J0bi5TaXplID0gVURpbTIuZnJvbU9mZnNldCgxNzAsIDM2KQpyZXNldEluZm9CdG4uUG9zaXRpb24gPSBVRGltMi5mcm9tT2Zmc2V0KDIwNiwgMjM0KQpyZXNldEluZm9CdG4uQmFja2dyb3VuZENvbG9yMyA9IENvbG9yMy5mcm9tUkdC
+KDE4LCAxOCwgMTgpCnJlc2V0SW5mb0J0bi5UZXh0ID0gIlJlc2V0IEhXSUQgKC5yZXNldGh3aWQpIgpyZXNld EluZm9CdG4uVGV4dENvbG9yMyA9IEMuTXV0ZWQKcmVzZXRJbmZvQnRuLkZvbnRGYWNlID0gZm9udE1lZGl1bQpyZXNldEluZm9CdG4uVGV4dFNpemUgPSAxMgpyZXNldEluZm9CdG4uQm   9
+yZGVyU2l6ZVBpeGVsID0gMApyZXNldEluZm9CdG4uUGFyZW50ID0gY2FyZApsb2NhbCByZXNldENvc  m5lciA9IEluc3RhbmNlLm5ldygiVUlDb3JuZXIiKQpyZXNldENvcm5lci5Db3JuZXJSYWRpdXMgPSBVRGltLm5ldygwLCAxMCkKcmVzZXRDb3JuZXIuUGFyZW50ID0gcmVzZXRJbmZvQnRuCmxvY2FsI
+GRyYWdnaW5nLCBkcmFnU3RhcnQsIHN0YXJ0UG9zID0gZmFsc2UsIG5pbCwgbmlsCmNhcmQuSW5wdX   RCZWdhbjpDb25uZWN0KGZ1bmN0aW9uKGlucHV0KQppZiBpbnB1dC5Vc2VySW5wdXRUeXBlID09IEVudW0uVXNlcklucHV0VHlwZS5Nb3VzZUJ1dHRvbjEgb3IgaW5wdXQuVXNlcklucHV0VHlwZSA9PS
+BFbnVtLlVzZXJJbnB1dFR5cGUuVG91Y2ggdGhlbgpkcmFnZ2luZyA9IHRydWUKZHJhZ1N0YXJ0I D 0gaW5wdXQuUG9zaXRpb24Kc3RhcnRQb3MgPSBjYXJkLlBvc2l0aW9uCmVuZAplbmQpCklucHV0LklucHV0Q2hhbmdlZDpDb25uZWN0KGZ1bmN0aW9uKGlucHV0KQppZiBkcmFnZ2luZyBhbmQgKGlucHV0
+LlVzZXJJbnB1dFR5cGUgPT0gRW51bS5Vc2VySW5wdXRUeXBlLk1vdXNlTW92ZW1lbnQgb3IgaW5wdXQuVXNlcklucHV0VHlwZSA9PSB FbnVtLlVzZXJJbnB1dFR5cGUuVG91Y2gpIHRoZW4KbG9jYWwgZGVsdGEgPSBpbnB1dC5Qb3NpdGlvbiAtIGRyYWdTdGFydApjYXJkLlBvc2l0aW9uID0gVURpbTIubmV
+3KHN0YXJ0UG9zLlguU2NhbGUsIHN0YXJ0UG9zLlguT2Zmc2V0ICsgZGVsdGEuWCwgc3RhcnRQb3MuWS5TY2FsZSwgc3RhcnRQb3MuW    S5PZmZzZXQgKyBkZWx0YS5ZKQplbmQKZW5kKQpsb2NhbCBmdW5jdGlvbiBzdG9wRHJhZygpIGRyYWdnaW5nID0gZmFsc2UgZW5kCklucHV0LklucHV0RW5kZWQ6Q29
+ubmVjdChmdW5jdGlvbihpbnB1dCkKaWYgaW5wdXQuVXNlcklucHV0VHlwZSA9PSBFbnVtLlVzZXJJbnB1dFR5cGUuTW91c2VCdXR0          b24xIG9yIGlucHV0LlVzZXJJbnB1dFR5cGUgPT0gRW51bS5Vc2VySW5wdXRUeXBlLlRvdWNoIHRoZW4Kc3RvcERyYWcoKQplbmQKZW5kKQpwYXN0ZUJ0bi5BY
+3RpdmF0ZWQ6Q29ubmVjdChmdW5jdGlvbigpCmxvY2FsIHRleHQgPSAiIgppZiBnZXRjbGlwYm9hcmQgdGhlbgpsb2NhbCBvaywgY2                          IgPSBwY2FsbChnZXRjbGlwYm9hcmQpCmlmIG9rIGFuZCB0eXBlKGNiKSA9PSAic3RyaW5nIiB0aGVuIHRleHQgPSBjYiBlbmQKZW5kCml
+mICN0ZXh0ID4gMCB0aGVuCmtleUlucHV0LlRleHQgPSB0ZXh0OmdzdWIoIiVzKyIsICIiKQpzdGF0dXMuVGV4dCA9ICJLZXkgcGF                            zdGVkIGZyb20gY2xpcGJvYXJkLiIKc3RhdHVzLlRleHRDb2xvcjMgPSBDLk11dGVkCmVsc2UKc3RhdHVzLlRleHQgPSAiQ2xpcGJvYXJ
+kIGlzIGVtcHR5IG9yIHVuc3VwcG9ydGVkLiIKc3RhdHVzLlRleHRDb2xvcjMgPSBDLldhcm5pbmcKZW5kCmVuZCkKZ2V0QnRuLk                             FjdGl2YXRlZDpDb25uZWN0KGZ1bmN0aW9uKCkKaWYgc2V0Y2xpcGJvYXJkIHRoZW4Kc2V0Y2xpcGJvYXJkKERJU0NPUkRfSU5WSVRFKQ
+pzdGF0dXMuVGV4dCA9ICJEaXNjb3JkIGludml0ZSBjb3BpZWQgdG8gY2xpcGJvYXJkISBUeXBlIC5rZXkgaW4gI2tleXMiCnN0                              YXR1cy5UZXh0Q29sb3IzID0gQy5TdWNjZXNzCmVsc2UKc3RhdHVzLlRleHQgPSAiSm9pbjogIiAuLiBESVNDT1JEX0lOVklURQpzdGF0
+dXMuVGV4dENvbG9yMyA9IEMuTXV0ZWQKZW5kCmVuZCkKcmVzZXRJbmZvQnRuLkFjdGl2YXRlZDpDb25uZWN0KGZ1bmN0aW9uK                               CkKc3RhdHVzLlRleHQgPSAiVG8gcmVzZXQgeW91ciBIV0lELCB0eXBlIC5yZXNldGh3aWQgaW4gdGhlIERpc2NvcmQga2V5IGNoYW5uZ
+WwuIgpzdGF0dXMuVGV4dENvbG9yMyA9IEMuV2FybmluZwplbmQpCmxvY2  FsIHZlcmlmeWluZyA9IGZhbHNlCmxvY2FsIGZ1                               bmN0aW9uIHBlcmZvcm1WZXJpZmljYXRpb24oa2V5VG9UZXN0KQppZiB2ZXJpZnlpbmcgdGhlbiByZXR1cm4gZW5kCnZlcmlmeWluZyA9
+IHRydWUKc3RhdHVzLlRleHQgPSAiVmVyaWZ5aW5nIGtleSB3aXRoIHN  lcnZlci4uLiIKc3RhdHVzLlRleHRDb2xvcjMgPS                               BDLldhcm5pbmcKdmVyaWZ5QnRuLlRleHQgPSAiVmVyaWZ5aW5nLi4uIgp0YXNrLnNwYXduKGZ1bmN0aW9uKCkKbG9jYWwgaHdpZCA9IGd
+ldEhXSUQoKQpsb2NhbCBwYXlsb2FkID0gc3RyaW5nLmZvcm1hdCgneyJrZXkiOiVxLCJod2lkIjolcX0nLCBrZXlUb1Rlc3                              QsIGh3aWQpCmxvY2FsIG9rLCByZXNwID0gcGNhbGwoZnVuY3Rpb24oKQpyZXR1cm4gaHR0cFJlcXVlc3QoewpVcmwgPSBBUElfVVJMLApNZ
+XRob2QgPSAiUE9TVCIsCkhlYWRlcnMgPSB7ClsiQ29udGVudC1UeXBlIl0gPSAiYXBwbGljYXRpb24vanNvbiIKfSwKQm9                             keSA9IHBheWxvYWQKfSkKZW5kKQppZiBub3Qgb2sgb3Igbm90IHJlc3AgdGhlbgpzdGF0dXMuVGV4dCA9ICJFcnJvcjogQ291bGQgbm90IGNv
+bm5lY3QgdG8gdmVyaWZpY2F0aW9uIHNlcnZlci4iCnN0YXR1cy5UZXh0Q29sb3IzID0gQy5FcnJvcgp2ZXJpZnlCdG4uV                            GV4dCA9ICJWZXJpZnkgS2V5Igp2ZXJpZnlpbmcgPSBmYWxzZQpyZXR1cm4KZW5kCmxvY2FsIGJvZHkgPSByZXNwLkJvZHkgb3IgIiIKbG9jYWwg
+aHR0cFN1Y2Nlc3MgPSByZXNwLlN0YXR1c0NvZGUgPT0gMjAwIG9yIHJlc3AuU3VjY2VzcyA9PSB0cnVlCmlmIGh0dHBTd                           WNjZXNzIGFuZCBib2R5OmZpbmQoJyJzdWNjZXNzIiVzKjolcyp0cnVlJykgdGhlbgpzYXZlS2V5KGtleVRvVGVzdCkKc3RhdHVzLlRleHQgPSAiQ
+WNjZXNzIGdyYW50ZWQhIExvYWRpbmcgU3dlZXQgRXhwbG9pdC4uLiIKc3RhdHVzLlRleHRDb2xvcjMgPSBDLlN1Y2Nlc                          3MKdmVyaWZ5QnRuLlRleHQgPSAiVmVyaWZpZWQhIgp0YXNrLmRlbGF5KDAuNCwgZnVuY3Rpb24oKQpUd2VlbjpDcmVhdGUoY2FyZCwgVHdlZW5JbmZ
+vLm5ldygwLjM1LCBFbnVtLkVhc2luZ1N0eWxlLlF1YWQpLCB7R3JvdXBUcmFuc3BhcmVuY3kgPSAxfSk6UGxheSgpCl                          R3ZWVuOkNyZWF0ZShibHVyLCBUd2VlbkluZm8ubmV3KDAuMzUsIEVudW0uRWFzaW5nU3R5bGUuUXVhZCksIHtTaXplID0gMH0pOlBsYXkoKQp0YXNrL
+ndhaXQoMC40KQpndWk6RGVzdHJveSgpCmJsdXI6RGVzdHJveSgpCmxvYWRTY3JpcHQoKQplbmQpCmVsc2UKaWYgYm9                           keTpmaW5kKCciS0VZX0RFTEVURUQiJykgb3IgYm9keTpmaW5kKCciSU5WQUxJRF9LRVkiJykgb3IgYm9keTpmaW5kKCciQkxBQ0tMSVNURUQiJykgdG
+hlbgppZiBkZWxmaWxlIGFuZCBpc2ZpbGUgYW5kIGlzZmlsZShLRVlfUEFUSCkgdGhlbgpwY2FsbChkZWxmaWxlLCB              LRVlf        UEFUSCkKZWxzZWlmIHdyaXRlZmlsZSB0aGVuCnBjYWxsKHdyaXRlZmlsZSwgS0VZX1BBVEgsICIiKQplbmQKa2V5SW5wdXQuVGV4dCA9ICIiCmVuZAps
+b2NhbCBtc2cgPSBib2R5Om1hdGNoKCcibWVzc2FnZSIlcyo6JXMqIihbXiJdKykiJykgb3IgIkludmFsaWQgb3Ig              ZXhwaXJlZCBrZXkuIgpzdGF0dXMuVGV4dCA9IG1zZwpzdGF0dXMuVGV4dENvbG9yMyA9IEMuRXJyb3IKdmVyaWZ5QnRuLlRleHQgPSAiVmVyaWZ5IEtleSIKdmVyaWZ5aW
+5nID0gZmFsc2UKZW5kCmVuZCkKZW5kCnZlcmlmeUJ0bi5BY3RpdmF0ZWQ6Q29ubmVjdChmdW5jdGlvbigpCmxvY              2FsIHRleHQgPSBrZXlJbnB1dC5UZXh0OmdzdWIoIiVzKyIsICIiKQppZiAjdGV4dCA8IDUgdGhlbgpzdGF0dXMuVGV4dCA9ICJQbGVhc2UgZW50ZXIgYSB2YWxpZCBrZXkg
+Zm9ybWF0LiIKc3RhdHVzLlRleHRDb2xvcjMgPSBDLldhcm5pbmcKcmV0dXJuCmVuZApwZXJmb3JtVmVyaWZpY2             F0aW9uKHRleHQpCmVuZCkKbG9jYWwgc2F2ZWRLZXkgPSByZWFkU2F2ZWRLZXkoKQppZiBzYXZlZEtleSB0aGVuCmtleUlucHV0LlRleHQgPSBzYXZlZEtleQpzdGF0dXMuVGV
+4dCA9ICJTYXZlZCBrZXkgZm91bmQuIEF1dG8tYXV0aGVudGljYXRpbmcuLi4iCnN0YXR1cy5UZXh0Q29sb3Iz            ID0gQy5XYXJuaW5nClR3ZWVuOkNyZWF0ZShjYXJkLCBUd2VlbkluZm8ubmV3KDAuNCwgRW51bS5FYXNpbmdTdHlsZS5RdWFkKSwge0dyb3VwVHJhbnNwYXJlbmN5ID0gMH0pOlB
+sYXkoKQpwZXJmb3JtVmVyaWZpY2F0aW9uKHNhdmVkS2V5KQplbHNlClR3ZWVuOkNyZWF0ZShjYXJkLCBUd2V           lbkluZm8ubmV3KDAuNCwgRW51bS5FYXNpbmdTdHlsZS5RdWFkKSwge0dyb3VwVHJhbnNwYXJlbmN5ID0gMH0pOlBsYXkoKQplbmQ=====================================
+=====================================================================================         ==========================================================================================================================================
+]=]
+local _t,_lut,_b,_n,_o={},{},0,0,0;local _c="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";for i=1,#_c do _lut[_c:sub(i,i)]=i-1 end;local _s=_0xb64:gsub("%s+","");for i=1,#_s do local c=_s:sub(i,i);if c~="=" then local v=_lut[c];if v then _b=bit32.bor(bit32.lshift(_b,6),v);_n=_n+6;if _n>=8 then _n=_n-8;_o=_o+1;_t[_o]=string.char(bit32.band(bit32.rshift(_b,_n),255))end end end end;local _fn=assert((loadstring or load)(table.concat(_t)));return _fn()
