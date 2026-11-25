@@ -13,6 +13,14 @@ local inputEndedConn = nil
 local exIsFile = isfile or is_file
 local exReadFile = readfile or read_file
 local exWriteFile = writefile or write_file
+
+local function normalizeKey(k)
+if not k then return "" end
+local s = tostring(k):gsub("^Enum%.KeyCode%.", "")
+local numMap = {["1"]="One", ["2"]="Two", ["3"]="Three", ["4"]="Four", ["5"]="Five", ["6"]="Six", ["7"]="Seven", ["8"]="Eight", ["9"]="Nine", ["0"]="Zero"}
+return numMap[s] or s
+end
+
 function KeybindsSystem.RegisterBindable(name, kind, data)
 if not name or name == "" then return end
 KeybindsSystem.Bindables[name] = {
@@ -24,15 +32,46 @@ toggle = data and data.toggle or function() end,
 trigger = data and data.trigger or function() end,
 }
 end
+
 function KeybindsSystem.GetBindable(name)
-if KeybindsSystem.Bindables[name] then
-return KeybindsSystem.Bindables[name]
+if not name or name == "" or name == "None" then return nil end
+local cleanName = tostring(name):gsub("^.*·%s*", "")
+
+local sources = {
+KeybindsSystem.Bindables,
+_G.DarlingX_Bindables,
+_G.UI_BINDABLES,
+_G.SweetBindables,
+}
+for _, src in ipairs(sources) do
+if type(src) == "table" then
+if src[name] then return src[name] end
+if src[cleanName] then return src[cleanName] end
+for k, v in pairs(src) do
+if tostring(k):lower() == tostring(name):lower() or tostring(k):lower() == cleanName:lower() then
+return v
 end
-if _G.DarlingX_Bindables and _G.DarlingX_Bindables[name] then
-return _G.DarlingX_Bindables[name]
+local strippedK = tostring(k):gsub("^.*·%s*", "")
+if strippedK:lower() == cleanName:lower() or strippedK:lower() == tostring(name):lower() then
+return v
 end
-if _G.UI_TOGGLES and _G.UI_TOGGLES[name] then
-local t = _G.UI_TOGGLES[name]
+end
+end
+end
+
+local toggleSources = {_G.UI_TOGGLES}
+for _, toggles in ipairs(toggleSources) do
+if type(toggles) == "table" then
+local t = toggles[cleanName] or toggles[name]
+if not t then
+for k, v in pairs(toggles) do
+if tostring(k):lower() == cleanName:lower() or tostring(k):lower() == tostring(name):lower() then
+t = v
+break
+end
+end
+end
+if t then
 return {
 name = name,
 kind = "Toggle",
@@ -45,36 +84,46 @@ end
 end,
 }
 end
+end
+end
+
+local tab = tostring(name):match("^([^·]+)%s*·")
+if tab then
+tab = tab:gsub("%s+", "")
+local loadFn = _G.LoadFeatures or _G.DarlingX_LoadFeatures or _G.SweetExploit_LoadFeatures
+if type(loadFn) == "function" then
+local ok = pcall(loadFn, tab)
+if ok then
+for _, src in ipairs(sources) do
+if type(src) == "table" and (src[name] or src[cleanName]) then
+return src[name] or src[cleanName]
+end
+end
+end
+end
+end
+
 return nil
 end
+
 function KeybindsSystem.GetAllBindablesList()
 local names = {}
 local seen = {}
-for name, _ in pairs(KeybindsSystem.Bindables) do
-if not seen[name] then
-seen[name] = true
-table.insert(names, name)
+local function add(n)
+if n and n ~= "" and not seen[n] then
+seen[n] = true
+names[#names + 1] = n
 end
 end
-if _G.DarlingX_Bindables then
-for name, _ in pairs(_G.DarlingX_Bindables) do
-if not seen[name] then
-seen[name] = true
-table.insert(names, name)
-end
-end
-end
-if _G.UI_TOGGLES then
-for name, _ in pairs(_G.UI_TOGGLES) do
-if not seen[name] then
-seen[name] = true
-table.insert(names, name)
-end
-end
-end
+for name, _ in pairs(KeybindsSystem.Bindables) do add(name) end
+if type(_G.DarlingX_Bindables) == "table" then for name, _ in pairs(_G.DarlingX_Bindables) do add(name) end end
+if type(_G.UI_BINDABLES) == "table" then for name, _ in pairs(_G.UI_BINDABLES) do add(name) end end
+if type(_G.SweetBindables) == "table" then for name, _ in pairs(_G.SweetBindables) do add(name) end end
+if type(_G.UI_TOGGLES) == "table" then for name, _ in pairs(_G.UI_TOGGLES) do add(name) end end
 table.sort(names, function(a, b) return a:lower() < b:lower() end)
 return names
 end
+
 function KeybindsSystem.AddKeybind(targetName, keyName, mode)
 if not targetName or not keyName then return end
 local b = KeybindsSystem.GetBindable(targetName)
@@ -90,6 +139,7 @@ if KeybindsSystem.OnChanged then
 pcall(KeybindsSystem.OnChanged)
 end
 end
+
 function KeybindsSystem.RemoveKeybind(index)
 if KeybindsSystem.List[index] then
 table.remove(KeybindsSystem.List, index)
@@ -99,6 +149,7 @@ pcall(KeybindsSystem.OnChanged)
 end
 end
 end
+
 function KeybindsSystem.ClearAll()
 KeybindsSystem.List = {}
 KeybindsSystem.Save()
@@ -106,6 +157,7 @@ if KeybindsSystem.OnChanged then
 pcall(KeybindsSystem.OnChanged)
 end
 end
+
 function KeybindsSystem.SetKey(index, keyName)
 if KeybindsSystem.List[index] and keyName then
 KeybindsSystem.List[index].key = keyName
@@ -115,6 +167,7 @@ pcall(KeybindsSystem.OnChanged)
 end
 end
 end
+
 function KeybindsSystem.SetMode(index, mode)
 if KeybindsSystem.List[index] and mode then
 KeybindsSystem.List[index].mode = mode
@@ -124,6 +177,7 @@ pcall(KeybindsSystem.OnChanged)
 end
 end
 end
+
 function KeybindsSystem.Save()
 if not exWriteFile then return end
 local data = {}
@@ -135,20 +189,28 @@ mode = item.mode or "Toggle",
 })
 end
 pcall(function()
-exWriteFile(CONFIG_FILE, HttpService:JSONEncode(data))
+local encoded = HttpService:JSONEncode(data)
+if makefolder and not (isfolder and isfolder("SweetExploit")) then
+pcall(makefolder, "SweetExploit")
+end
+pcall(function() exWriteFile("SweetExploit/keybinds.json", encoded) end)
+pcall(function() exWriteFile(CONFIG_FILE, encoded) end)
 end)
 end
+
 function KeybindsSystem.Load()
 if KeybindsSystem.Loaded then return end
 KeybindsSystem.Loaded = true
 if not exIsFile or not exReadFile then return end
-local ok, content = pcall(function()
-if exIsFile(CONFIG_FILE) then
-return exReadFile(CONFIG_FILE)
+local content = nil
+pcall(function()
+if exIsFile("SweetExploit/keybinds.json") then
+content = exReadFile("SweetExploit/keybinds.json")
+elseif exIsFile(CONFIG_FILE) then
+content = exReadFile(CONFIG_FILE)
 end
-return nil
 end)
-if ok and content and #content > 2 then
+if content and #content > 2 then
 local okDecode, decoded = pcall(function()
 return HttpService:JSONDecode(content)
 end)
@@ -167,16 +229,17 @@ end
 end
 end
 end
+
 function KeybindsSystem.Init()
 KeybindsSystem.Load()
-if inputBeganConn then inputBeganConn:Disconnect() end
-if inputEndedConn then inputEndedConn:Disconnect() end
+if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
+if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
 inputBeganConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-if gameProcessed then return end
+if UserInputService:GetFocusedTextBox() then return end
 if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 local keyName = input.KeyCode.Name
 for _, item in ipairs(KeybindsSystem.List) do
-if item.key == keyName then
+if normalizeKey(item.key):upper() == keyName:upper() then
 local b = KeybindsSystem.GetBindable(item.target)
 if b then
 if item.mode == "Toggle" then
@@ -207,7 +270,7 @@ inputEndedConn = UserInputService.InputEnded:Connect(function(input, gameProcess
 if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 local keyName = input.KeyCode.Name
 for _, item in ipairs(KeybindsSystem.List) do
-if item.key == keyName and item.mode == "Hold" then
+if normalizeKey(item.key):upper() == keyName:upper() and item.mode == "Hold" then
 item.isHeld = false
 local b = KeybindsSystem.GetBindable(item.target)
 if b and b.kind == "Toggle" then
@@ -218,4 +281,5 @@ end
 end)
 end
 _G.DarlingX_KeybindsSystem = KeybindsSystem
+_G.SweetKeybindsSystem = KeybindsSystem
 return KeybindsSystem
