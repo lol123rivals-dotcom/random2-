@@ -1029,7 +1029,7 @@ layout = function()
     local mx = padding + sideW + gap
     local mw, mh = windowW - mx - padding, windowH - padding * 2
     place(main, mx, padding, mw, mh)
-    local titleWidth=api.HeaderMusicActive and math.min(205,mw-340)or mw-340
+    local titleWidth = api.HeaderMusicActive and 105 or (mw - 340)
     place(dragArea,0,0,titleWidth,92)
     greeting.Text = tabLabels[state.Tab] or state.Tab
     subtitle.Text = state.Tab == "Dashboard" and ("Welcome, " .. (player.DisplayName or player.Name)) or
@@ -1040,7 +1040,7 @@ layout = function()
     place(profileName, mw - 253, 17, 132, 25)
     place(profileHandle, mw - 253, 43, 132, 22)
     place(windowControls,mw-95,4,95,46)
-    if api.UpdateMusicDock then api.UpdateMusicDock(titleWidth+12,mw-320)end
+    if api.UpdateMusicDock then api.UpdateMusicDock(api.HeaderMusicActive and 115 or (titleWidth+12),mw-320)end
 
     local contentY = 104
     local ch, cw = mh - contentY, mw - 4
@@ -30373,8 +30373,8 @@ local badge = Instance.new("TextLabel")
 badge.Name = "Badge"
 badge.Size = UDim2.new(0, 150, 0, 32)
 badge.Position = UDim2.new(0.5, -75, 0.5, -36)
-badge.BackgroundColor3 = Color3.fromRGB(28, 26, 22)
-badge.TextColor3 = Color3.fromRGB(245, 185, 55)
+badge.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+badge.TextColor3 = Color3.fromRGB(255, 255, 255)
 badge.Font = Enum.Font.GothamBold
 badge.TextSize = 13
 badge.Text = "COMING SOON"
@@ -30383,16 +30383,16 @@ local badgeCorner = Instance.new("UICorner")
 badgeCorner.CornerRadius = UDim.new(0, 8)
 badgeCorner.Parent = badge
 local badgeStroke = Instance.new("UIStroke")
-badgeStroke.Color = Color3.fromRGB(245, 185, 55)
+badgeStroke.Color = Color3.fromRGB(255, 255, 255)
 badgeStroke.Thickness = 1
-badgeStroke.Transparency = 0.4
+badgeStroke.Transparency = 0.3
 badgeStroke.Parent = badge
 local desc = Instance.new("TextLabel")
 desc.Name = "Description"
 desc.Size = UDim2.new(1, -24, 0, 32)
 desc.Position = UDim2.new(0, 12, 0.5, 8)
 desc.BackgroundTransparency = 1
-desc.TextColor3 = Color3.fromRGB(160, 160, 175)
+desc.TextColor3 = Color3.fromRGB(255, 255, 255)
 desc.Font = Enum.Font.Gotham
 desc.TextSize = 13
 desc.Text = "The Scam Link module is currently in development and will be available in a future update."
@@ -31038,16 +31038,16 @@ end
     local musicWaveBars = {}
     local musicConnection = nil
     local eqAnimStep = 0
-    local totalBars = 24
+    local totalBars = 28
     local wasPlaying = false
 
     local function dockMusic(startX, endX)
         if not musicBar then return end
         local width = main.Size.X.Offset
-        local left = startX or 180
-        local right = endX or math.max(left + 160, width - 300)
-        local barWidth = math.max(160, right - left)
-        place(musicBar, left, 26, barWidth, 24)
+        local left = startX or 115
+        local right = endX or math.max(left + 180, width - 320)
+        local barWidth = math.max(180, right - left)
+        place(musicBar, left, 23, barWidth, 30)
         musicBar.Visible = music.ShowBar == true
     end
     api.UpdateMusicDock = dockMusic
@@ -31061,18 +31061,18 @@ end
             BorderSizePixel = 0,
             ZIndex = 16,
         }, main)
-        corner(musicBar, 12)
+        corner(musicBar, 15)
         local topStroke = new('UIStroke', {
             Color = C.Accent,
-            Thickness = 0.8,
-            Transparency = 0.75,
+            Thickness = 1.0,
+            Transparency = 0.7,
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         }, musicBar)
 
         eqContainer = new('Frame', {
             Name = 'EqContainer',
-            Size = UDim2.new(1, -20, 0, 14),
-            Position = UDim2.new(0, 10, 0.5, -7),
+            Size = UDim2.new(1, -24, 0, 18),
+            Position = UDim2.new(0, 12, 0.5, -9),
             BackgroundTransparency = 1,
             ZIndex = 17,
         }, musicBar)
@@ -31081,14 +31081,14 @@ end
         for i = 1, totalBars do
             local bar = new('Frame', {
                 Name = 'EqBar' .. i,
-                Size = UDim2.new(0, 2.5, 0, 2),
-                Position = UDim2.new((i - 1) / totalBars, 0, 1, -2),
+                Size = UDim2.new(0, 3.5, 0, 3),
+                Position = UDim2.new((i - 1) / totalBars, 0, 1, -3),
                 BackgroundColor3 = C.Accent,
-                BackgroundTransparency = 0.8,
+                BackgroundTransparency = 0.75,
                 BorderSizePixel = 0,
                 ZIndex = 17,
             }, eqContainer)
-            corner(bar, 1)
+            corner(bar, 1.5)
             musicWaveBars[i] = bar
         end
 
@@ -31123,17 +31123,17 @@ end
             wasPlaying = true
             eqAnimStep = eqAnimStep + 0.16
             for i, bar in ipairs(musicWaveBars) do
-                local h = math.clamp(3 + math.abs(math.sin(eqAnimStep + i * 0.45)) * 11, 2, 14)
-                bar.Size = UDim2.new(0, 2.5, 0, h)
+                local h = math.clamp(4 + math.abs(math.sin(eqAnimStep + i * 0.42)) * 14, 3, 18)
+                bar.Size = UDim2.new(0, 3.5, 0, h)
                 bar.Position = UDim2.new((i - 1) / totalBars, 0, 1, -h)
-                bar.BackgroundTransparency = 0.35
+                bar.BackgroundTransparency = 0.25
             end
         elseif wasPlaying then
             wasPlaying = false
             for i, bar in ipairs(musicWaveBars) do
-                bar.Size = UDim2.new(0, 2.5, 0, 2)
-                bar.Position = UDim2.new((i - 1) / totalBars, 0, 1, -2)
-                bar.BackgroundTransparency = 0.85
+                bar.Size = UDim2.new(0, 3.5, 0, 3)
+                bar.Position = UDim2.new((i - 1) / totalBars, 0, 1, -3)
+                bar.BackgroundTransparency = 0.8
             end
         end
     end
